@@ -1,0 +1,14 @@
+<html>
+    <head>
+        <title>Ore Data</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    </head>
+    <body>
+        <h1>Ore Data Parser</h1>
+        <form method="POST">
+            <textarea name="oredata" placeholder="Paste ore scan data here...">{{ request.form.oredata }}</textarea><br>
+            <button type="submit">Parse</button>
+        </form>
+        {{ table_html|safe }}
+    </body>
+    </html>            
