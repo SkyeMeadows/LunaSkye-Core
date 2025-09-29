@@ -21,7 +21,7 @@ def get_log_path(logname: str) -> str:
     logs_date_dir = os.path.join(logs_base_dir, today_str)
     os.makedirs(logs_date_dir, exist_ok=True)
     
-    logs_filename = f"{logname}---{now_str}.txt"
+    logs_filename = f"{logname}-{now_str}.log"
     return os.path.join(logs_date_dir, logs_filename)
 
 load_dotenv()
@@ -37,7 +37,7 @@ numeric_log_level = LOG_LEVEL_MAP.get(LOG_LEVEL, logging.DEBUG)
 
 # Setting up Logging
 logging.basicConfig(
-    filename=os.path.join(os.path.dirname(os.path.abspath(__file__)), "Logs", "AccessTokenManagerLog.txt"),
+    filename=get_log_path("AccessTokenManager"),
     filemode='w',
     level=numeric_log_level,
     format='%(asctime)s [%(levelname)s] %(message)s', # Format's the lines as <time> <[Level]> <Message>

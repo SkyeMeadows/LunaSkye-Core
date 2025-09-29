@@ -1,5 +1,8 @@
 import argparse
+import asyncio
 import os
+from pickle import MARK
+import time
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -8,8 +11,11 @@ from matplotlib.dates import DayLocator, DateFormatter, HourLocator, AutoDateLoc
 from matplotlib.ticker import MaxNLocator
 import logging
 from dotenv import load_dotenv
+import aiosqlite
+from collections import defaultdict
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+os.makedirs(os.path.join(script_dir, "Logs"), exist_ok=True)
 
 def get_log_path(logname: str) -> str:
     logs_base_dir = os.path.join(script_dir, "Logs")
@@ -56,6 +62,8 @@ logging.critical("Logging Enabled - This is Not An Issue")
 current_datetime = datetime.now()
 log.info(f"Current datetime is: {current_datetime}")
 
+
+
 # === Parse CLI arguments ===
 log.debug("Parsing Arguments")
 parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
@@ -68,101 +76,78 @@ log.debug("Arguments Parsed")
 log.debug("Establishing paths to data")
 
 MAIN_DIR = os.path.dirname(script_dir)
-DATA_DIR = os.path.join(MAIN_DIR, script_dir, "Data")
+DATA_DIR = os.path.join(MAIN_DIR, "ESI-Interface", "Data")
 
-jita_path = os.path.join(DATA_DIR, "jita_sell_5_avg.csv")
-BRAVE_HOME_path = os.path.join(DATA_DIR, "BRAVE_HOME_sell_5_avg.csv")
-GSF_HOME_path = os.path.join(DATA_DIR, "GSF_HOME_sell_5_avg.csv")
+ID_DICTONARY_PATH = os.path.join(os.path.dirname(script_dir), "Shared-Content", "Item_IDs.csv")
 
 output_folder = os.path.join(script_dir, "Graphs")
 os.makedirs(output_folder, exist_ok=True)
 
-log.debug("Data paths established")
-
-# === Load and label data ===
-log.debug("reading data from CSV to df")
-jita_df = pd.read_csv(jita_path)
-BRAVE_HOME_df = pd.read_csv(BRAVE_HOME_path)
-GSF_HOME_df = pd.read_csv(GSF_HOME_path)
-
-log.debug("Setting df 'System' to respective systems")
-jita_df["system"] = "Jita"
-BRAVE_HOME_df["system"] = "BRAVE_HOME"
-GSF_HOME_df["system"] = "GSF_HOME"
-
-# === Parse timestamps for all sources (EVE format: "%Y-%m-%d_%H-%M")
-log.debug("Converting 'timestamp' into datetime")
-
-jita_df["formatted_time"] = pd.to_datetime(jita_df["timestamp"]).dt.floor("H").dt.strftime("%Y-%m-%d_%H-%M")
-BRAVE_HOME_df["formatted_time"] = pd.to_datetime(BRAVE_HOME_df["timestamp"]).dt.floor("H").dt.strftime("%Y-%m-%d_%H-%M")
-GSF_HOME_df["formatted_time"] = pd.to_datetime(GSF_HOME_df["timestamp"]).dt.floor("H").dt.strftime("%Y-%m-%d_%H-%M")
-
-log.debug("Dropping NA timestamps")
-jita_df = jita_df.dropna(subset=["timestamp"])
-BRAVE_HOME_df = BRAVE_HOME_df.dropna(subset=["timestamp"])
-GSF_HOME_df = GSF_HOME_df.dropna(subset=["timestamp"])
-
-log.debug("Dropping NA prices")
-jita_df = jita_df.dropna(subset=["price"])
-BRAVE_HOME_df = BRAVE_HOME_df.dropna(subset=["price"])
-GSF_HOME_df = GSF_HOME_df.dropna(subset=["price"])
 
 # === Load item names ===
 log.debug("Loading list of ItemIDs")
-item_df = pd.read_csv(os.path.join(script_dir, "Item_IDs.csv")).drop_duplicates(subset="typeID")
-id_to_name = dict(zip(item_df["typeID"], item_df["typeName"]))
-item_name = id_to_name.get(args.item_id, f"Item {args.item_id}")
-safe_name = item_name.replace(" ", "_").replace("/", "_")
+item_df = pd.read_csv(ID_DICTONARY_PATH).drop_duplicates(subset="typeID")
 
-# === Split by system ===
-log.debug("sorting df's by timestamp")
-jita_data = jita_df.sort_values("timestamp")
-BRAVE_HOME_data = BRAVE_HOME_df.sort_values("timestamp")
-GSF_HOME_data = GSF_HOME_df.sort_values("timestamp")
+# Open DB Connection
+db_path = os.path.join(DATA_DIR, "market_data.db")
+print(f"DB Path: {db_path}")
 
-# === Checking & fixing Data Types ===
-log.debug("Preparing to make 'price' numeric")
-jita_data["price"] = pd.to_numeric(jita_data["price"], errors="coerce")
-BRAVE_HOME_data["price"] = pd.to_numeric(BRAVE_HOME_data["price"], errors="coerce")
-GSF_HOME_data["price"] = pd.to_numeric(GSF_HOME_data["price"], errors="coerce")
+async def connect_to_db(item_id: int, days: int = None,  db_path=db_path):
+    async with aiosqlite.connect(db_path) as db:
+        db.row_factory = aiosqlite.Row
 
-item_id = args.item_id
-log.debug(f"Filtering for item id: {item_id}")
+        query = """
+            SELECT timestamp, item_id, system, price
+            FROM market_orders
+            WHERE item_id = ?
+        """
+        params = [item_id]
 
-log.debug("Preparing to filter out all data != to requested item")
-log.debug(f"Data before filtering (Jita): {jita_data}")
-log.debug(f"Data before filtering (GSF): {GSF_HOME_data}")
-log.debug(f"Data before filtering (BRAVE): {BRAVE_HOME_data}")
+        if days:
+            cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            query += " AND timestamp >= ?"
+            params.append(cutoff)
 
-jita_data = jita_data[jita_data["item_id"] == item_id]
-BRAVE_HOME_data = BRAVE_HOME_data[BRAVE_HOME_data["item_id"] == item_id]
-GSF_HOME_data = GSF_HOME_data[GSF_HOME_data["item_id"] == item_id]
+        query += " ORDER BY timestamp ASC"
 
-log.debug("Filtering complete!")
-log.debug(f"Data after filtering (Jita): {jita_data}")
-log.debug(f"Data after filtering (GSF): {GSF_HOME_data}")
-log.debug(f"Data after filtering (BRAVE): {BRAVE_HOME_data}")
+        async with db.execute(query, tuple(params)) as cursor:
+            rows = await cursor.fetchall()
+            return rows
 
-# === Set Cutoff ==
-log.debug("Setting the current date and time & cutoffs")
-now = datetime.now()
-log.debug(f"Established time as: {now}")
-cutoff = now - timedelta(days=args.days)
-log.debug(f"Established cutoff as: {cutoff}")
 
-cutoff = cutoff.strftime("%Y-%m-%d_%H-%M")
-log.debug(f"Established formatted cutoff as: {cutoff}")
+async def match_item_name(item_id: int) -> str:
+    matched_row = item_df[item_df["typeID"] == item_id]
+    if not matched_row.empty:
+        print(matched_row)
+        return matched_row.iloc[0]["typeName"]
+    else:
+        log.error(f"Item ID {item_id} not found in Item_IDs.csv")
 
-# === Filter Based on Cutoff ===
-jita_data = jita_data[jita_data["formatted_time"] >= cutoff]
-BRAVE_HOME_data = BRAVE_HOME_data[BRAVE_HOME_data["formatted_time"] >= cutoff]
-GSF_HOME_data = GSF_HOME_data[GSF_HOME_data["formatted_time"] >= cutoff]
 
-log.debug(f"Data after cutoff (Jita): {jita_data}")
-log.debug(f"Data after cutoff (GSF): {GSF_HOME_data}")
-log.debug(f"Data after cutoff (BRAVE): {BRAVE_HOME_data}")
+async def make_graph(item_id, days, type_name, db=db_path):
+    rows = await connect_to_db(item_id, days, db)
 
-# === Plot ===
+    data_by_system = defaultdict(lambda: {"timestamps": [], "prices": []})
+
+    for timestamp, item_id, system, price in rows:
+        dt = datetime.fromisoformat(timestamp)
+        data_by_system[system]["timestamps"].append(dt)
+        data_by_system[system]["prices"].append(price)
+
+    plt.figure(figsize=(16, 8), dpi=200)
+    for system, data in data_by_system.items():
+        plt.plot(data["timestamps"], data["prices"], label=system)
+    plt.title(f"{type_name} Prices - Last {days} Days")
+    plt.xlabel("Timestamp")
+    plt.ylabel("Price (ISK)")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{type_name}_price_graph.png")
+    plt.close()
+
+
+
+"""
 plt.style.use('dark_background')
 
 for df in [jita_data, BRAVE_HOME_data, GSF_HOME_data]:
@@ -286,3 +271,17 @@ log.debug(f"GSF_HOME price range:", GSF_HOME_data["price"].min(), "-", GSF_HOME_
 '''
 log.info(f"Graph saved to: {filepath}")
 exit(0)
+"""
+
+
+async def main():
+    item_id = args.item_id
+    days = args.days if args.days > 0 else None
+    db = await connect_to_db(item_id, days)
+    type_name = await match_item_name(item_id)
+
+    await make_graph(item_id, days, type_name, db)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

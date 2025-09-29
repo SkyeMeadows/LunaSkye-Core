@@ -1,21 +1,22 @@
 import json
 import aiofiles
-from io import StringIO
 import requests
 import os
 from datetime import datetime, time
 import logging
-import csv
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
 import asyncio
 from requests import ReadTimeout
 import sys
 import pandas as pd
+import aiosqlite
 
 
 ## Setup Logging Paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
+os.makedirs(os.path.join(script_dir, "Logs"), exist_ok=True)
+os.makedirs(os.path.join(script_dir, "Data"), exist_ok=True)
 
 def get_log_path(logname: str) -> str:
     logs_base_dir = os.path.join(script_dir, "Logs")
@@ -24,7 +25,7 @@ def get_log_path(logname: str) -> str:
     logs_date_dir = os.path.join(logs_base_dir, today_str)
     os.makedirs(logs_date_dir, exist_ok=True)
     
-    logs_filename = f"{logname}---{now_str}.txt"
+    logs_filename = f"{logname}-{now_str}.log"
     return os.path.join(logs_date_dir, logs_filename)
 
 
@@ -69,11 +70,12 @@ log.debug(f"Established time as: {now}")
 today = datetime.today()
 
 # File paths
+common_folder = os.path.join(os.path.dirname(script_dir), "Shared-Content")
 token_path = os.path.join(script_dir, "token.json")
-item_ids_path = os.path.join(script_dir, "Item_IDs.csv")
-ore_list_path = os.path.join(script_dir, "ore_list.json")
-query_list_path = os.path.join(script_dir, "query_list.json")
-reprocessing_yield_path = os.path.join(script_dir, "reprocess_yield.json")
+item_ids_path = os.path.join(common_folder, "Item_IDs.csv")
+ore_list_path = os.path.join(common_folder, "ore_list.json")
+query_list_path = os.path.join(common_folder, "query_list.json")
+reprocessing_yield_path = os.path.join(common_folder, "reprocess_yield.json")
 log.debug("Filepaths Loaded")
 log.info("Local Data Loaded")
 
@@ -90,6 +92,8 @@ AUTH_BASE = "https://login.eveonline.com/v2/oauth/authorize"
 TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 log.debug("ESI Query Path Bases Loaded")
 
+# Database Paths
+DB_PATH = os.path.join(script_dir, "Data", "market_data.db")
 
 # TOKEN AUTH FUNCTIONS
 async def save_token(new_token):
@@ -538,282 +542,224 @@ CSV_Price_Columns = ["timestamp", "item_id", "system", "price"]
 CSV_Volume_Sold_Columns = ["date", "item_id", "region", "volume_sold"]
 log.debug("CSV Columns loaded")
 
+async def init_db():
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS market_orders (
+                timestamp TEXT NOT NULL,
+                item_id INTEGER NOT NULL,
+                system TEXT NOT NULL,
+                price REAL NOT NULL
+            )
+        """)
+        await db.commit()
+
 async def process_item_jita(items, ore_list, reprocess_yield_list, esi):
-    for item in items:
-        try:
-            log.debug(f"Processing {item} for Jita")
-            
-            # Check if Item is an ore, if so, handle differently, if not, continue as normal
-            log.debug(f"Checking if item ID {item} is an ore")
-            if item in ore_list:
-                log.debug(f"Item {item} is an ore")
-                price_data_path = datapath_jita_sell_5_avg
-
-                log.debug(f"Calculating ore value for {item}")
-                ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
-                log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
-
-                file_exists = os.path.exists(datapath_jita_sell_5_avg)
-                file_is_empty = not file_exists or os.stat(datapath_jita_sell_5_avg).st_size == 0
-
-                output = StringIO()
-                writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
-
-                if file_is_empty:
-                    writer.writeheader()
-                writer.writerow({
-                    "timestamp": datetime.now(),
-                    "item_id": item,
-                    "system": "Jita",
-                    "price": ore_value
-                })
-
-                log.debug("Writing Jita data to CSV")
-                async with aiofiles.open(datapath_jita_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
-                    await data.write(output.getvalue())
-                    
-                log.debug("Jita CSV Written")
-
-                log.info(f"Jita Data Recorded for {item}, moving to next item")
-                continue
-
-            log.debug("Extracting Jita Sell Orders")
-            jita_sell_orders = await process_extract_sellOrders(item, JITA_STATION, is_structure=False, esi_session=esi, system_name="Jita")
-            log.debug("Calculating L5PS Jita Sell Orders")
-            jita_sell_orders_5_avg = await calculate_5_percent_sell(jita_sell_orders["sell_orders"])
-            log.debug("Jita Data pulled and calculated")
-
-            file_exists = os.path.exists(datapath_jita_sell_5_avg)
-            file_is_empty = not file_exists or os.stat(datapath_jita_sell_5_avg).st_size == 0
-
-            output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
-
-            if file_is_empty:
-                writer.writeheader()
-            writer.writerow({
-                "timestamp": datetime.now(),
-                "item_id": item,
-                "system": "Jita",
-                "price": jita_sell_orders_5_avg
-            })
-
-            log.debug("Writing Jita data to CSV")
-            async with aiofiles.open(datapath_jita_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
-                await data.write(output.getvalue())
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA journal_mode=WAL;")
+        for item in items:
+            try:
+                log.debug(f"Processing {item} for Jita")
                 
-            log.debug("Jita CSV Written")
+                # Check if Item is an ore, if so, handle differently, if not, continue as normal
+                log.debug(f"Checking if item ID {item} is an ore")
+                if item in ore_list:
+                    log.debug(f"Item {item} is an ore")
+                    price_data_path = datapath_jita_sell_5_avg
 
-            log.info(f"Jita Data Recorded for {item}, moving to next item")  
+                    log.debug(f"Calculating ore value for {item}")
+                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
-        except Exception as e:  
-            log.error(f"Exception caught when processsing Jita Item {item}: {e}")
+                    log.debug("Writing Jita data to SQLite Database")
+                    await db.execute("""
+                        INSERT INTO market_orders (timestamp, item_id, system, price) 
+                        VALUES (?, ?, ?, ?)                
+                    """, (current_datetime, item, "Jita", ore_value))
+                    await db.commit()
+
+                    log.info(f"Jita Data Recorded for {item}, moving to next item")
+                    continue
+
+                log.debug("Extracting Jita Sell Orders")
+                jita_sell_orders = await process_extract_sellOrders(item, JITA_STATION, is_structure=False, esi_session=esi, system_name="Jita")
+                log.debug("Calculating L5PS Jita Sell Orders")
+                jita_sell_orders_5_avg = await calculate_5_percent_sell(jita_sell_orders["sell_orders"])
+                log.debug("Jita Data pulled and calculated")
+
+                log.debug("Writing Jita data to SQLite Database")
+                await db.execute("""
+                    INSERT INTO market_orders (timestamp, item_id, system, price)
+                    VALUES(?, ?, ?, ?)
+                """, (current_datetime, item, "Jita", jita_sell_orders_5_avg))
+                await db.commit()
+
+                log.info(f"Jita Data Recorded for {item}, moving to next item")  
+
+            except Exception as e:  
+                log.error(f"Exception caught when processsing Jita Item {item}: {e}")
 
 
 async def process_item_BRAVE_HOME(items, ore_list, reprocess_yield_list, esi):
     log.debug(f"Got {len(items)} items for BRAVE_HOME Processing: {items}")
-    for item in items:
-        try:
-            log.debug(f"Checking if item ID {item} is an ore")
-            if item in ore_list:
-                log.debug(f"Item {item} is an ore")
-                price_data_path = datapath_BRAVE_HOME_sell_5_avg
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA journal_mode=WAL;")
+        for item in items:
+            try:
+                log.debug(f"Checking if item ID {item} is an ore")
+                if item in ore_list:
+                    log.debug(f"Item {item} is an ore")
+                    price_data_path = datapath_BRAVE_HOME_sell_5_avg
 
-                log.debug(f"Calculating ore value for {item}")
-                ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
-                log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
+                    log.debug(f"Calculating ore value for {item}")
+                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
-                file_exists = os.path.exists(datapath_BRAVE_HOME_sell_5_avg)
-                file_is_empty = not file_exists or os.stat(datapath_BRAVE_HOME_sell_5_avg).st_size == 0
+                    log.debug("Writing BRAVE_HOME data to SQLite Database")
+                    await db.execute("""
+                        INSERT INTO market_orders (timestamp, item_id, system, price) 
+                        VALUES (?, ?, ?, ?)                
+                    """, (current_datetime, item, "BRAVE_HOME", ore_value))
+                    await db.commit()
+                        
+                    log.debug("BRAVE_HOME CSV Written")
 
-                output = StringIO()
-                writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
+                    log.info(f"BRAVE_HOME Data Recorded for {item}, moving to next item")
+                    continue
+                # 2) BRAVE_HOME
+                ## PRICE
+                log.debug(f"Extracting BRAVE HOME Sell Orders with ESI Session: {esi}")
+                BRAVE_HOME_sell_orders = await process_extract_sellOrders(item, BRAVE_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="BRAVE_HOME")
 
-                if file_is_empty:
-                    writer.writeheader()
-                writer.writerow({
-                    "timestamp": datetime.now(),
-                    "item_id": item,
-                    "system": "Jita",
-                    "price": ore_value
-                })
+                if not BRAVE_HOME_sell_orders["sell_orders"]:
+                    log.warning(f"No sell orders for item {item} in BRAVE_HOME - skipping.")
+                    continue
+                
+                log.debug("Calculating L5PS BRAVE HOME Sell Orders")
+                BRAVE_HOME_sell_orders_5_avg = await calculate_5_percent_sell(BRAVE_HOME_sell_orders["sell_orders"])    
 
-                log.debug("Writing Jita data to CSV")
-                async with aiofiles.open(datapath_BRAVE_HOME_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
-                    await data.write(output.getvalue())
-                    
-                log.debug("Jita CSV Written")
+                log.debug("Writing BRAVE_HOME data to SQLite Database")
+                await db.execute("""
+                    INSERT INTO market_orders (timestamp, item_id, system, price)
+                    VALUES(?, ?, ?, ?)
+                """, (current_datetime, item, "BRAVE_HOME", BRAVE_HOME_sell_orders_5_avg))
+                await db.commit()
 
-                log.info(f"Jita Data Recorded for {item}, moving to next item")
-                continue
-            # 2) BRAVE_HOME
-            ## PRICE
-            log.debug(f"Extracting BRAVE HOME Sell Orders with ESI Session: {esi}")
-            BRAVE_HOME_sell_orders = await process_extract_sellOrders(item, BRAVE_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="BRAVE_HOME")
+                log.info(f"BRAVE HOME Data Recorded for {item}, moving to next item")
 
-            if not BRAVE_HOME_sell_orders["sell_orders"]:
-                log.warning(f"No sell orders for item {item} in BRAVE_HOME - skipping.")
+            except Exception as e:
+                log.warning(f"Failed to process price for item {item} in BRAVE_HOME: {e}")
+            
+            ## VOLUME 
+            """
+            if target_start_time <= now < target_end_time:
+                log.debug(f"Is is time to query daily volume data")
+            else:
+                log.debug("Not time to query volume data")
                 continue
             
-            log.debug("Calculating L5PS BRAVE HOME Sell Orders")
-            BRAVE_HOME_sell_orders_5_avg = await calculate_5_percent_sell(BRAVE_HOME_sell_orders["sell_orders"])    
+            BRAVE_HOME_volume_sold = await get_volume_sold(item, BRAVE_HOME_REGION, esi)
 
-            file_exists = os.path.exists(datapath_BRAVE_HOME_sell_5_avg)
-            file_is_empty = not file_exists or os.stat(datapath_BRAVE_HOME_sell_5_avg).st_size == 0
-
-            log.debug("Writing BRAVE Data to CSV")
+            volume_sold = BRAVE_HOME_volume_sold["volume_sold"]
 
             output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
-
+            writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
             if file_is_empty:
-                writer.writeheader() # writes from fieldnames above
+                writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
+            if BRAVE_HOME_volume_sold is None:
+                log.debug("Received No Value, Skipping")
+                continue
             writer.writerow({
-                "timestamp": datetime.now(),
+                "date": today,
                 "item_id": item,
-                "system": "BRAVE_HOME",
-                "price": BRAVE_HOME_sell_orders_5_avg,
+                "region": "Tenerefis",
+                "volume_sold": volume_sold
             })
 
-            async with aiofiles.open(datapath_BRAVE_HOME_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
+            async with aiofiles.open(datapath_BRAVE_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
                 await data.write(output.getvalue())
+                """
 
-            log.debug("BRAVE HOME CSV Written")
-            log.info(f"BRAVE HOME Data Recorded for {item}, moving to next item")
-
-        except Exception as e:
-            log.warning(f"Failed to process price for item {item} in BRAVE_HOME: {e}")
-        
-        ## VOLUME
-        if target_start_time <= now < target_end_time:
-            log.debug(f"Is is time to query daily volume data")
-        else:
-            log.debug("Not time to query volume data")
-            continue
-        
-        BRAVE_HOME_volume_sold = await get_volume_sold(item, BRAVE_HOME_REGION, esi)
-
-        volume_sold = BRAVE_HOME_volume_sold["volume_sold"]
-
-        output = StringIO()
-        writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
-        if file_is_empty:
-            writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
-        if BRAVE_HOME_volume_sold is None:
-            log.debug("Received No Value, Skipping")
-            continue
-        writer.writerow({
-            "date": today,
-            "item_id": item,
-            "region": "Tenerefis",
-            "volume_sold": volume_sold
-        })
-
-        async with aiofiles.open(datapath_BRAVE_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
-            await data.write(output.getvalue())
-            
 
 async def process_item_GSF_HOME(items, ore_list, reprocess_yield_list, esi):
     log.debug(f"Got {len(items)} items for GSF_HOME Processing: {items}")
-    for item in items:
-        try:
-            log.debug(f"Checking if item ID {item} is an ore")
-            if item in ore_list:
-                log.debug(f"Item {item} is an ore")
-                price_data_path = datapath_GSF_HOME_sell_5_avg
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA journal_mode=WAL;")
+        for item in items:
+            try:
+                log.debug(f"Checking if item ID {item} is an ore")
+                if item in ore_list:
+                    log.debug(f"Item {item} is an ore")
+                    price_data_path = datapath_GSF_HOME_sell_5_avg
 
-                log.debug(f"Calculating ore value for {item}")
-                ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
-                log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
+                    log.debug(f"Calculating ore value for {item}")
+                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
-                file_exists = os.path.exists(datapath_GSF_HOME_sell_5_avg)
-                file_is_empty = not file_exists or os.stat(datapath_GSF_HOME_sell_5_avg).st_size == 0
+                    log.debug("Writing GSF_HOME data to SQLite Database")
+                    await db.execute("""
+                        INSERT INTO market_orders (timestamp, item_id, system, price)
+                        VALUES(?, ?, ?, ?)
+                    """, (current_datetime, item, "GSF_HOME", GSF_HOME_sell_orders_5_avg))
+                    await db.commit()
 
-                output = StringIO()
-                writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
+                    log.info(f"Jita Data Recorded for {item}, moving to next item")
+                    continue
 
-                if file_is_empty:
-                    writer.writeheader()
-                writer.writerow({
-                    "timestamp": datetime.now(),
-                    "item_id": item,
-                    "system": "Jita",
-                    "price": ore_value
-                })
+                # 3) GSF_HOME
+                ## PRICE
+                log.debug(f"Extracting GSF HOME Sell Orders with ESI Session: {esi}")
+                GSF_HOME_sell_orders = await process_extract_sellOrders(item, GSF_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="GSF_HOME")
+                
+                if not GSF_HOME_sell_orders["sell_orders"]:
+                    log.warning(f"No sell orders for item {item} in GSF_HOME - skipping.")
+                    continue
+                
+                log.debug("Calculating L5PS GSF HOME Sell Orders")
+                GSF_HOME_sell_orders_5_avg = await calculate_5_percent_sell(GSF_HOME_sell_orders["sell_orders"])
 
-                log.debug("Writing Jita data to CSV")
-                async with aiofiles.open(datapath_GSF_HOME_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
-                    await data.write(output.getvalue())
-                    
-                log.debug("Jita CSV Written")
-
-                log.info(f"Jita Data Recorded for {item}, moving to next item")
-                continue
-            # 3) GSF_HOME
-            ## PRICE
-            log.debug(f"Extracting GSF HOME Sell Orders with ESI Session: {esi}")
-            GSF_HOME_sell_orders = await process_extract_sellOrders(item, GSF_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="GSF_HOME")
+                log.debug("Writing GSF_HOME data to SQLite Database")
+                await db.execute("""
+                    INSERT INTO market_orders (timestamp, item_id, system, price)
+                    VALUES(?, ?, ?, ?)
+                """, (current_datetime, item, "GSF_HOME", GSF_HOME_sell_orders_5_avg))
+                await db.commit()
+                
+                log.info(f"GSF HOME Data Recorded for {item}, moving to next item")
             
-            if not GSF_HOME_sell_orders["sell_orders"]:
-                log.warning(f"No sell orders for item {item} in GSF_HOME - skipping.")
-                continue
+            except Exception as e:
+                log.warning(f"Failed to process price for item {item} in GSF_HOME: {e}")
             
-            log.debug("Calculating L5PS GSF HOME Sell Orders")
-            GSF_HOME_sell_orders_5_avg = await calculate_5_percent_sell(GSF_HOME_sell_orders["sell_orders"])
+            ## VOLUME   
+            """ 
+            if target_start_time <= now < target_end_time:
+                log.debug(f"Is is time to query daily volume data")
+            else:
+                log.debug("Not time to query volume data")
+                continue
 
-            file_exists = os.path.exists(datapath_GSF_HOME_sell_5_avg)
-            file_is_empty = not file_exists or os.stat(datapath_GSF_HOME_sell_5_avg).st_size == 0
+            GSF_HOME_volume_sold = await get_volume_sold(item, GSF_HOME_REGION, esi)
 
-            log.debug("Writing GSF Data to CSV")
+            volume_sold = GSF_HOME_volume_sold["volume_sold"]
 
             output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=CSV_Price_Columns)
+            writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
             if file_is_empty:
-                writer.writeheader() # writes from fieldnames above
+                writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
+            if GSF_HOME_volume_sold is None:
+                log.debug("Received No Value, Skipping")
+                continue
             writer.writerow({
-                "timestamp": datetime.now(),
+                "date": today,
                 "item_id": item,
-                "system": "GSF_HOME",
-                "price": GSF_HOME_sell_orders_5_avg
+                "region": "Insmother",
+                "volume_sold": volume_sold
             })
 
-            async with aiofiles.open(datapath_GSF_HOME_sell_5_avg, mode='a', newline='', encoding='utf-8') as data:
+            async with aiofiles.open(datapath_GSF_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
                 await data.write(output.getvalue())
-
-            log.debug("GSF HOME CSV Written")
-            log.info(f"GSF HOME Data Recorded for {item}, moving to next item")
-        
-        except Exception as e:
-            log.warning(f"Failed to process price for item {item} in GSF_HOME: {e}")
-        
-        ## VOLUME    
-        if target_start_time <= now < target_end_time:
-            log.debug(f"Is is time to query daily volume data")
-        else:
-            log.debug("Not time to query volume data")
-            continue
-
-        GSF_HOME_volume_sold = await get_volume_sold(item, GSF_HOME_REGION, esi)
-
-        volume_sold = GSF_HOME_volume_sold["volume_sold"]
-
-        output = StringIO()
-        writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
-        if file_is_empty:
-            writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
-        if GSF_HOME_volume_sold is None:
-            log.debug("Received No Value, Skipping")
-            continue
-        writer.writerow({
-            "date": today,
-            "item_id": item,
-            "region": "Insmother",
-            "volume_sold": volume_sold
-        })
-
-        async with aiofiles.open(datapath_GSF_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
-            await data.write(output.getvalue())
-            
+            """
+                
 
 async def main():
     log.info("Starting Data Processing")
@@ -821,6 +767,7 @@ async def main():
     ore_list = await load_ore_list()
     reprocess_yield_list = await load_reprocessing_yield()
     esi = await get_authenticated_session()
+    await init_db()
     await asyncio.gather(
         process_item_jita(query_list, ore_list, reprocess_yield_list, esi),
         process_item_BRAVE_HOME(query_list, ore_list, reprocess_yield_list, esi),

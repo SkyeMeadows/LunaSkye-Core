@@ -361,4 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Other - Manully Defined
 /.env
+/ESI-Interface/token.json
