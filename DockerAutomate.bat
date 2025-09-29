@@ -21,7 +21,13 @@ IF %ERRORLEVEL% NEQ 0 (
 echo ===========================
 echo Deploying to remote server
 echo ===========================
-ssh skye@100.108.98.44 "cd /home/skye/programs && docker compose pull && docker compose up -d"
+
+:: Sending Files to Server
+scp -r ./Anomaly-Evaluator skye@100.108.98.44:/home/skye/programs
+scp -r ./ESI-Interface skye@100.108.98.44:/home/skye/programs
+scp -r ./The-Market-Hand skye@100.108.98.44:/home/skye/programs
+
+ssh skye@100.108.98.44 "cd /home/skye/programs && docker login && docker-compose build Anomaly-Evaluator The-Market-Hand ESI-Interface"
 
 IF %ERRORLEVEL% NEQ 0 (
     echo Remote deployment failed!
@@ -29,10 +35,10 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 :: Sending Environment File to Server
-scp -r .env skye@100.108.98.44:/home/skye/programs
+scp ./.env skye@100.108.98.44:/home/skye/programs
 
 :: Sending Token to Server
-scp -r ./ESI-Interface/token.json skye@100.108.98.44:/home/skye/programs/ESI-Interface
+scp ./ESI-Interface/token.json skye@100.108.98.44:/home/skye/programs/ESI-Interface
 
 echo ===========================
 echo Deployment complete!
