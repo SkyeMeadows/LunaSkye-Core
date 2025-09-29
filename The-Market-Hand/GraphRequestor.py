@@ -76,7 +76,7 @@ log.debug("Arguments Parsed")
 log.debug("Establishing paths to data")
 
 MAIN_DIR = os.path.dirname(script_dir)
-DATA_DIR = os.path.join(MAIN_DIR, "ESI-Interface", "Data")
+DATA_DIR = os.path.join(MAIN_DIR, "Shared-Content")
 
 ID_DICTONARY_PATH = os.path.join(os.path.dirname(script_dir), "Shared-Content", "Item_IDs.csv")
 

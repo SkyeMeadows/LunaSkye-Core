@@ -1,0 +1,28 @@
+*.log
+market_data.db
+token.json
+.vs/
+
+# Ignore Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environments (we build inside container)
+.venv/
+venv/
+
+# Ignore Git stuff
+.git/
+.gitignore
+
+# Ignore OS cruft
+.DS_Store
+
+# Ignore local data files
+*.db
+*.log
+
+# Ignore env files (we pass them via docker-compose)
+.env

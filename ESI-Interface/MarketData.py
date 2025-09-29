@@ -16,7 +16,6 @@ import aiosqlite
 ## Setup Logging Paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(os.path.join(script_dir, "Logs"), exist_ok=True)
-os.makedirs(os.path.join(script_dir, "Data"), exist_ok=True)
 
 def get_log_path(logname: str) -> str:
     logs_base_dir = os.path.join(script_dir, "Logs")
@@ -93,7 +92,7 @@ TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 log.debug("ESI Query Path Bases Loaded")
 
 # Database Paths
-DB_PATH = os.path.join(script_dir, "Data", "market_data.db")
+DB_PATH = os.path.join(common_folder, "market_data.db")
 
 # TOKEN AUTH FUNCTIONS
 async def save_token(new_token):

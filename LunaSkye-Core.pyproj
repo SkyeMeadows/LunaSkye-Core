@@ -25,13 +25,20 @@
     <VisualStudioVersion Condition=" '$(VisualStudioVersion)' == '' ">10.0</VisualStudioVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include=".dockerignore" />
+    <Content Include=".env" />
     <Content Include=".gitattributes" />
     <Content Include=".gitignore" />
+    <Content Include="Anomaly-Evaluator\.dockerignore" />
+    <Content Include="Anomaly-Evaluator\Dockerfile" />
+    <Content Include="Anomaly-Evaluator\requirements.txt" />
     <Content Include="Anomaly-Evaluator\static\style.css" />
     <Content Include="Anomaly-Evaluator\templates\index.html" />
-    <Content Include="Dockerfile" />
-    <Content Include="ESI-Interface\Data\market_data.db">
+    <Content Include="docker-compose.yml" />
+    <Content Include="DockerAutomate.bat" />
+    <Content Include="ESI-Interface\.dockerignore" />
+    <Content Include="ESI-Interface\Dockerfile" />
+    <Content Include="ESI-Interface\requirements.txt" />
+    <Content Include="Shared-Content\market_data.db">
       <Publish>True</Publish>
     </Content>
     <Content Include="ESI-Interface\Logs\2025-09-28\AccessTokenManager-2025-09-28---16-00-20.log" />
@@ -47,16 +54,19 @@
     <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-15.log" />
     <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-23.log" />
     <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-37.log" />
+    <Content Include="ESI-Interface\token.json" />
     <Content Include="README.md" />
-    <Content Include="requirements.txt" />
     <Content Include="Shared-Content\Item_IDs.csv" />
     <Content Include="Shared-Content\ore_list.json" />
     <Content Include="Shared-Content\query_list.json" />
     <Content Include="Shared-Content\query_list_note.txt" />
     <Content Include="Shared-Content\reprocess_yield.json" />
+    <Content Include="The-Market-Hand\.dockerignore" />
+    <Content Include="The-Market-Hand\Dockerfile" />
     <Content Include="The-Market-Hand\Graphs\Pyerite_price_graph.png" />
     <Content Include="The-Market-Hand\Logs\HourlyGraphGeneratorLog.txt" />
     <Content Include="The-Market-Hand\Graphs\Tritanium_price_graph.png" />
+    <Content Include="The-Market-Hand\requirements.txt" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Anomaly-Evaluator\main.py" />
@@ -76,7 +86,6 @@
     <Folder Include="Anomaly-Evaluator\static" />
     <Folder Include="Anomaly-Evaluator\templates" />
     <Folder Include="ESI-Interface" />
-    <Folder Include="ESI-Interface\Data\" />
     <Folder Include="ESI-Interface\Logs\" />
     <Folder Include="ESI-Interface\Logs\2025-09-28\" />
     <Folder Include="Shared-Content" />

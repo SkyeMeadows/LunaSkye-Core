@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  ESI-Interface:
+    build:
+      context: ./ESI-Interface
+      dockerfile: Dockerfile
+    container_name: ESI-Interface
+    image: skyemeadows/ESI-Interface:latest
+    restart: unless-stopped
+    env_file: 
+      - .env
+    volumes:
+      - market_data:/app/market_data
+
+  The-Market-Hand:
+    build:
+      context: ./The-Market-Hand
+      dockerfile: Dockerfile
+    container_name: The-Market-Hand
+    image: skyemeadows/The-Market-Hand:latest
+    restart: unless-stopped
+    env_file: 
+      - .env
+    volumes:
+      - market_data:/app/market_data
+
+  Anomaly-Evaluator:
+    build:
+      context: ./Anomaly-Evaluator
+      dockerfile: Dockerfile
+    container_name: Anomaly-Evaluator
+    image: skyemeadows/Anomaly-Evaluator:latest
+    restart: unless-stopped
+    env_file: 
+      - .env
+    volumes:
+      - market_data:/app/market_data
+
+volumes:
+  market_data:
