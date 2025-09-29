@@ -365,3 +365,4 @@ FodyWeavers.xsd
 # Other - Manully Defined
 /.env
 /ESI-Interface/token.json
+/The-Market-Hand/Graphs/

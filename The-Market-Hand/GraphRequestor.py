@@ -129,12 +129,13 @@ async def make_graph(item_id, days, type_name, db=db_path):
 
     data_by_system = defaultdict(lambda: {"timestamps": [], "prices": []})
 
-    for timestamp, item_id, system, price in rows:
-        dt = datetime.fromisoformat(timestamp)
-        data_by_system[system]["timestamps"].append(dt)
-        data_by_system[system]["prices"].append(price)
+    for row in rows:
+        print(f"DEBUG ROW: {row}")
+        dt = datetime.fromisoformat(row["timestamp"])
+        data_by_system[row["system"]]["timestamps"].append(dt)
+        data_by_system[row["system"]]["prices"].append(row["price"])
 
-    plt.figure(figsize=(16, 8), dpi=200)
+    plt.figure(figsize=(16,8), dpi=300)
     for system, data in data_by_system.items():
         plt.plot(data["timestamps"], data["prices"], label=system)
     plt.title(f"{type_name} Prices - Last {days} Days")
@@ -142,8 +143,7 @@ async def make_graph(item_id, days, type_name, db=db_path):
     plt.ylabel("Price (ISK)")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"{type_name}_price_graph.png")
-    plt.close()
+    plt.savefig(f"Graphs/{type_name}_price_graph.png")
 
 
 
@@ -277,10 +277,10 @@ exit(0)
 async def main():
     item_id = args.item_id
     days = args.days if args.days > 0 else None
-    db = await connect_to_db(item_id, days)
+    #db = await connect_to_db(item_id, days)
     type_name = await match_item_name(item_id)
 
-    await make_graph(item_id, days, type_name, db)
+    await make_graph(item_id, days, type_name)
 
 
 if __name__ == "__main__":
