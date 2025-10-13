@@ -80,7 +80,8 @@ jita_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "jita_sell_5_avg.csv
 BRAVE_HOME_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "BRAVE_HOME_sell_5_avg.csv")
 GSF_HOME_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "GSF_HOME_sell_5_avg.csv")
 
-query_list_path = os.path.join(MAIN_DIR, "ESI-Interface", "query_list.json")
+query_list_path = os.path.join(MAIN_DIR, "Shared-Content", "query_list.json")
+item_id_path = os.path.join(MAIN_DIR, "Shared-Content", "Item_IDs.csv")
 
 log.debug("Paths Set")
 
@@ -93,7 +94,7 @@ def load_query_list(path=query_list_path):
 available_item_ids = load_query_list()
 
 log.debug("Loading Item IDs")
-item_df = pd.read_csv("Item_IDs.csv").drop_duplicates(subset="typeID")
+item_df = pd.read_csv(item_id_path).drop_duplicates(subset="typeID")
 name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
@@ -204,7 +205,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message("Input too long!", ephemeral=True)
         return
     
-    df = pd.read_csv("Item_IDs.csv").drop_duplicates(subset="typeID")
+    df = pd.read_csv(item_id_path).drop_duplicates(subset="typeID")
     for itemID in df:
         row = item_df[item_df['typeID'] == itemID]
 
@@ -217,14 +218,12 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
 @bot.tree.command(name="get_graph", description="Sends a price graph for the selected item and time range.")
 @app_commands.describe(
     item_name="The name of the item you are looking for",
-    days_history="How many days of data you want?",
-    daily="Do you want data by day (unlocks volume)"
-)
+    days_history="How many days of data you want?"
+    )
 async def get_graph(
     interaction: discord.Interaction,
     item_name: str,
-    days_history: float,
-    daily: bool
+    days_history: float
 ):
     user_id = interaction.user.id
     now = time.time()
@@ -259,20 +258,7 @@ async def get_graph(
         item_id = name_to_id[item_key]
         safe_item_name = user_input_name.strip().replace(" ", "_").replace("/", "_")
 
-        all_data = []
-        for csv_path in [jita_path, BRAVE_HOME_path, GSF_HOME_path]:
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.floor("H").dt.strftime("%Y-%m-%d_%H-%M")
-                df = df[df["item_id"] == item_id]
-                log.debug(f"Dataframe after conversion and filtering: {df}")
-                all_data.append(df)
-
-        combined = pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
-        if combined.empty:
-            await interaction.followup.send(f"ISSUE: No data at all for **{item_name}**.", ephemeral=True)
-            return
-
+        '''
         df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d_%H-%M", errors="coerce")
         oldest_date = df["timestamp"].min()
         if pd.isna(oldest_date):
@@ -283,33 +269,34 @@ async def get_graph(
             now = pd.Timestamp.utcnow().tz_localize(None)
             oldest_date = oldest_date.tz_localize(None)
             max_days = (now - oldest_date).days
-
+        
         if days_history > max_days:
             await interaction.followup.send(
                 f" Only {max_days} days of data available for **{item_name}**.\n"
                 f"Showing what’s available.",
                 ephemeral=True
             )
-        if daily == False:
-            command = [
-                venv_python,
-                requestor_path,
-                "--item_id", str(item_id),
-                "--days", str(days_history)
-            ]
-            #log.debug(f"[DEBUG] Running subprocess: {' '.join(command)}")
+        '''
+        #if daily == False:
+        command = [
+            venv_python,
+            requestor_path,
+            "--item_id", str(item_id),
+            "--days", str(days_history)
+        ]
+        #log.debug(f"[DEBUG] Running subprocess: {' '.join(command)}")
 
-            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
-            log.debug(result.stdout)
-            log.debug(result.stderr)
+        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
+        log.debug(result.stdout)
+        log.debug(result.stderr)
 
-            if result.returncode != 0:
-                await interaction.followup.send(
-                    f" Graph could not be generated for **{item_name}**.",
-                    ephemeral=True
-                )
-                return
-        
+        if result.returncode != 0:
+            await interaction.followup.send(
+                f" Graph could not be generated for **{item_name}**.",
+                ephemeral=True
+            )
+            return
+        '''
         if daily == True:
             command = [
                 venv_python,
@@ -330,9 +317,9 @@ async def get_graph(
                     ephemeral=True
                 )
                 return
-
+        '''
         days_str = f"{days_history:.1f}"
-        filename = f"{safe_item_name}_last_{days_str}d.png"
+        filename = f"{safe_item_name}_price_graph.png"
         file_path = os.path.join("Graphs", filename)
 
         if not os.path.isfile(file_path):
@@ -342,10 +329,12 @@ async def get_graph(
             )
             return
 
+        max_days = 0
+
         await interaction.followup.send(
             content=(
                 f"Here's the price graph for **{item_name}** "
-                f"(last {min(days_history, max_days)} days out of {max_days} available):"
+                f"(last {days_history} days out of <insert max days> available):"
             ),
             file=discord.File(file_path)
         )

@@ -135,7 +135,7 @@ async def make_graph(item_id, days, type_name, db=db_path):
         data_by_system[row["system"]]["timestamps"].append(dt)
         data_by_system[row["system"]]["prices"].append(row["price"])
 
-    plt.figure(figsize=(16,8), dpi=300)
+    plt.figure(figsize=(20,12), dpi=300)
     for system, data in data_by_system.items():
         plt.plot(data["timestamps"], data["prices"], label=system)
     plt.title(f"{type_name} Prices - Last {days} Days")
@@ -143,12 +143,13 @@ async def make_graph(item_id, days, type_name, db=db_path):
     plt.ylabel("Price (ISK)")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f"Graphs/{type_name}_price_graph.png")
-
+    os.makedirs(os.path.join(script_dir, "Graphs"), exist_ok=True)
+    plt.savefig(f"{script_dir}/Graphs/{type_name}_price_graph.png")
+    plt.close()
 
 
 """
-plt.style.use('dark_background')
+
 
 for df in [jita_data, BRAVE_HOME_data, GSF_HOME_data]:
     df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
