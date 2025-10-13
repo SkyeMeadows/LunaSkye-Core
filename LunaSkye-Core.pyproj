@@ -62,6 +62,7 @@
     <Compile Include="ESI-Interface\MarketData.py" />
     <Compile Include="ESI-Interface\scheduler.py" />
     <Compile Include="Fitting-Import-Calculator\webpage.py" />
+    <Compile Include="Shared-Content\CSV-DB_Converter.py" />
     <Compile Include="The-Market-Hand\GraphRequestor.py" />
     <Compile Include="The-Market-Hand\GraphRequestorDaily.py" />
     <Compile Include="The-Market-Hand\MarketHand.py" />
