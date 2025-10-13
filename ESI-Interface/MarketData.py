@@ -92,7 +92,7 @@ TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 log.debug("ESI Query Path Bases Loaded")
 
 # Database Paths
-DB_PATH = os.path.join(common_folder, "market_data.db")
+DB_PATH = os.path.join(common_folder, "market_historical_data.db")
 
 # TOKEN AUTH FUNCTIONS
 async def save_token(new_token):
@@ -447,7 +447,31 @@ async def get_volume_sold(item, region, esi_session):
 
     return volume_data
 
-async def calculate_ore_value(ore_id, reprocess_yield_list, price_data_path):
+async def query_price_db(ore_id, system):
+    price_data_path = os.path.join(common_folder, "market_historical_data.db")
+
+    log.debug("Gathering price data from database")
+    query = """
+        SELECT timestamp, item_id, system, price
+        FROM market_orders
+        WHERE item_id = ?
+        AND system = ?
+        AND timestamp >= datetime('now', '-10 minutes')
+        ORDER BY timestamp ASC
+        """
+
+    async with aiosqlite.connect(price_data_path) as db:
+        db.row_factory = aiosqlite.Row # makes rows act like dicts
+        cursor = await db.execute(query, (ore_id, system))
+        rows = await cursor.fetchall()
+
+    return rows
+
+async def calculate_ore_value(ore_id, location):
+
+    log.debug("Calculating Ore Value...")
+    log.debug("Reading static paths")
+    reprocess_yield_list = DB_PATH
 
     log.debug("Reading item id CSV")
     item_id_dict = pd.read_csv(item_ids_path)
@@ -460,41 +484,20 @@ async def calculate_ore_value(ore_id, reprocess_yield_list, price_data_path):
     ore_yield = {name: quantity for name, quantity in reprocess_yield_list[ore_name].items() if quantity != 0}
     log.debug(f"Gathered refinement data for {ore_name} as {ore_yield}")
 
-    log.debug("Reading price data")
-    price_data = pd.read_csv(price_data_path, parse_dates=["timestamp"])
-    log.debug("Price data read")
-    log.debug("Sorting values by timestamp")
-    price_data = price_data.sort_values("timestamp", ascending=False)
-    log.debug("Price values sorted")
+    price_data = await query_price_db(ore_id, location)
 
-    log.debug(f"Getting specifically the minerals from refinement data for {ore_name}")
-    refined_materials = ore_yield.keys()
-    log.debug("Gathered mineral names from refinement data")
-
-    log.debug("Merging Price data with refinement data")
-    price_data_named = price_data.merge(
-        item_id_dict, 
-        left_on="item_id",
-        right_on="typeID",
-        how="left"
-    )
-    log.debug("Data merged")
-
-    filtered_price_data = price_data_named[price_data_named["typeName"].isin(refined_materials)]
-
-    latest_prices = filtered_price_data.drop_duplicates(subset="typeName", keep="first")
+    latest_prices = price_data.drop_duplicates(subset="typeName", keep="first")
 
     recent_prices = dict(zip(latest_prices["typeName"], latest_prices["price"]))
 
     ore_value = {}
-
     for material, quantity in ore_yield.items():
         price = recent_prices.get(material, 0)
         ore_value[material] = quantity * price
 
-    ore_value = (sum(ore_value.values()) * 0.9063) / 100 # Max refine is 90.63%
+    ore_value_total = (sum(ore_value.values()) * 0.9063) / 100 # Max refine is 90.63%
 
-    return ore_value
+    return ore_value_total
 
 
 ### STATIC DATA
@@ -567,7 +570,7 @@ async def process_item_jita(items, ore_list, reprocess_yield_list, esi):
                     price_data_path = datapath_jita_sell_5_avg
 
                     log.debug(f"Calculating ore value for {item}")
-                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    ore_value = await calculate_ore_value(item, "Jita")
                     log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
                     log.debug("Writing Jita data to SQLite Database")
@@ -611,7 +614,7 @@ async def process_item_BRAVE_HOME(items, ore_list, reprocess_yield_list, esi):
                     price_data_path = datapath_BRAVE_HOME_sell_5_avg
 
                     log.debug(f"Calculating ore value for {item}")
-                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    ore_value = await calculate_ore_value(item, "BRAVE_HOME")
                     log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
                     log.debug("Writing BRAVE_HOME data to SQLite Database")
@@ -692,7 +695,7 @@ async def process_item_GSF_HOME(items, ore_list, reprocess_yield_list, esi):
                     price_data_path = datapath_GSF_HOME_sell_5_avg
 
                     log.debug(f"Calculating ore value for {item}")
-                    ore_value = await calculate_ore_value(item, reprocess_yield_list, price_data_path)
+                    ore_value = await calculate_ore_value(item, "GSF_HOME")
                     log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
 
                     log.debug("Writing GSF_HOME data to SQLite Database")
@@ -702,7 +705,7 @@ async def process_item_GSF_HOME(items, ore_list, reprocess_yield_list, esi):
                     """, (current_datetime, item, "GSF_HOME", GSF_HOME_sell_orders_5_avg))
                     await db.commit()
 
-                    log.info(f"Jita Data Recorded for {item}, moving to next item")
+                    log.info(f"GSF_HOME Data Recorded for {item}, moving to next item")
                     continue
 
                 # 3) GSF_HOME

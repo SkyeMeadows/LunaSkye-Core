@@ -29,6 +29,7 @@
     <Content Include=".gitattributes" />
     <Content Include=".gitignore" />
     <Content Include="Anomaly-Evaluator\.dockerignore" />
+    <Content Include="Anomaly-Evaluator\anom-test.txt" />
     <Content Include="Anomaly-Evaluator\Dockerfile" />
     <Content Include="Anomaly-Evaluator\requirements.txt" />
     <Content Include="Anomaly-Evaluator\static\style.css" />
@@ -38,22 +39,9 @@
     <Content Include="ESI-Interface\.dockerignore" />
     <Content Include="ESI-Interface\Dockerfile" />
     <Content Include="ESI-Interface\requirements.txt" />
-    <Content Include="Shared-Content\market_data.db">
-      <Publish>True</Publish>
-    </Content>
-    <Content Include="ESI-Interface\Logs\2025-09-28\AccessTokenManager-2025-09-28---16-00-20.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\AccessTokenManager-2025-09-28---20-04-02.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\AccessTokenManager-2025-09-28---20-47-31.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-31-07.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-32-16.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-32-39.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-32-44.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-33-16.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---12-41-12.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-04-47.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-15.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-23.log" />
-    <Content Include="ESI-Interface\Logs\2025-09-28\MarketDataCollectionLog-2025-09-28---20-47-37.log" />
+    <Content Include="Fitting-Import-Calculator\fitting.txt" />
+    <Content Include="Fitting-Import-Calculator\static\style.css" />
+    <Content Include="Fitting-Import-Calculator\templates\index.html" />
     <Content Include="ESI-Interface\token.json" />
     <Content Include="README.md" />
     <Content Include="Shared-Content\Item_IDs.csv" />
@@ -63,19 +51,17 @@
     <Content Include="Shared-Content\reprocess_yield.json" />
     <Content Include="The-Market-Hand\.dockerignore" />
     <Content Include="The-Market-Hand\Dockerfile" />
-    <Content Include="The-Market-Hand\Graphs\Pyerite_price_graph.png" />
-    <Content Include="The-Market-Hand\Logs\HourlyGraphGeneratorLog.txt" />
-    <Content Include="The-Market-Hand\Graphs\Tritanium_price_graph.png" />
     <Content Include="The-Market-Hand\requirements.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Anomaly-Evaluator\main.py" />
+    <Compile Include="Anomaly-Evaluator\Evaluator-Webpage.py" />
     <Compile Include="ESI-Interface\db_setup.py" />
     <Compile Include="ESI-Interface\ESI_OAuth_flow.py" />
     <Compile Include="ESI-Interface\Manager-AT.py" />
     <Compile Include="ESI-Interface\Manager-RT.py" />
     <Compile Include="ESI-Interface\MarketData.py" />
     <Compile Include="ESI-Interface\scheduler.py" />
+    <Compile Include="Fitting-Import-Calculator\webpage.py" />
     <Compile Include="The-Market-Hand\GraphRequestor.py" />
     <Compile Include="The-Market-Hand\GraphRequestorDaily.py" />
     <Compile Include="The-Market-Hand\MarketHand.py" />
@@ -86,12 +72,11 @@
     <Folder Include="Anomaly-Evaluator\static" />
     <Folder Include="Anomaly-Evaluator\templates" />
     <Folder Include="ESI-Interface" />
-    <Folder Include="ESI-Interface\Logs\" />
-    <Folder Include="ESI-Interface\Logs\2025-09-28\" />
+    <Folder Include="Fitting-Import-Calculator\" />
+    <Folder Include="Fitting-Import-Calculator\templates\" />
+    <Folder Include="Fitting-Import-Calculator\static\" />
     <Folder Include="Shared-Content" />
     <Folder Include="The-Market-Hand" />
-    <Folder Include="The-Market-Hand\Graphs\" />
-    <Folder Include="The-Market-Hand\Logs" />
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|PythonCore|3.13" />

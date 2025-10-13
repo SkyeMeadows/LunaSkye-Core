@@ -1,10 +1,12 @@
 import pandas as pd
 import os
 import logging
-import datetime
 import re
 from flask import Flask, render_template, request
 from dotenv import load_dotenv
+import aiosqlite
+import asyncio
+from datetime import UTC, datetime, timedelta
 
 
 
@@ -43,12 +45,70 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # Log runtime
-current_datetime = datetime.time()
+current_datetime = datetime.now()
 log.info(f"Current datetime is: {current_datetime}")
 
 # === BASICS DONE ===
 MAIN_DIR = os.path.dirname(script_dir)
-jita_price_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "jita_sell_5_avg.csv")
+DATA_DIR = os.path.join(MAIN_DIR, "Shared-Content")
+
+log.debug("Loading Static Data")
+
+ID_DICTONARY_PATH = os.path.join(os.path.dirname(script_dir), "Shared-Content", "Item_IDs.csv")
+
+log.debug(f"Loading list of ItemIDs from: {ID_DICTONARY_PATH}")
+items_df = pd.read_csv(ID_DICTONARY_PATH).drop_duplicates(subset="typeID")
+item_lookup = dict(zip(items_df["typeName"], items_df["typeID"]))
+
+
+# Open DB Connection
+db_path = os.path.join(DATA_DIR, "market_historical_data.db")
+log.debug(f"DB Path: {db_path}")
+
+async def connect_to_db(item_ids: list[int],  db_path=db_path):
+    log.debug(f"Connecting to DB at path {db_path}")
+    log.debug(f"Item ID list: {item_ids}")
+    async with aiosqlite.connect(db_path) as db:
+        log.debug("Connected to DB")
+        db.row_factory = aiosqlite.Row
+        BATCH_SIZE = 900
+        results = []
+
+        log.debug(f"Querying DB for Item IDs: {item_ids}")
+        for i in range(0, len(item_ids), BATCH_SIZE):
+            batch = item_ids[i:i+BATCH_SIZE]
+            placeholders = ", ".join("?" for _ in batch)
+
+            log.debug(f"Estblishing Query for batch {batch}")
+
+            query = f"""
+                SELECT timestamp, item_id, system, price
+                FROM market_orders
+                WHERE item_id IN ({placeholders})
+            """
+
+            log.debug(f"Executing Query: {query} with batch: {batch}")
+
+            async with db.execute(query, batch) as cursor:
+                log.debug("Fetching all rows from query")
+                rows = await cursor.fetchall()
+                log.debug(f"Rows after cursor.fetchall(): {rows}")
+                log.debug("Extending results with fetched rows")
+                results.extend(rows)
+
+        log.debug(f"Returning all fetched rows - total: {len(results)}")
+        if not results:
+            log.warning("No results found for the given item IDs.")
+
+        return results
+
+async def match_item_name(item_id: int) -> str:
+    matched_row = items_df[items_df["typeID"] == item_id]
+    if not matched_row.empty:
+        print(matched_row)
+        return matched_row.iloc[0]["typeName"]
+    else:
+        log.error(f"Item ID {item_id} not found in Item_IDs.csv")
 
 app = Flask(__name__)
 
@@ -85,6 +145,7 @@ def parse_input(text):
             "units": amount_units,
             "volume": amount_volume
         })
+        # Be sure to send what ores were input so it can be queried from the SQlite DB
     log.debug("Returning full parsed dataframe")
     return pd.DataFrame(parsed)
 
@@ -113,6 +174,8 @@ def volume_total(df: pd.DataFrame) -> pd.DataFrame:
     log.debug("Adding TOTAL row as a DataFrame row")
     df = pd.concat([df, pd.DataFrame([total_row])], ignore_index=True)
     log.debug("Returning table dataframe with total row")
+    log.debug(f"Dataframe being returned: {df}")
+    print(df)
     return df
 
 def style_table(df: pd.DataFrame):
@@ -142,21 +205,27 @@ def style_table(df: pd.DataFrame):
     return styler.to_html(classes="data", index=False)
 
 
-log.debug("Loading Static Data")
-items_df = pd.read_csv(os.path.join(MAIN_DIR, "ESI-Interface", "Item_IDs.csv"))
-item_lookup = dict(zip(items_df["typeName"], items_df["typeID"]))
-
-prices_df = pd.read_csv(jita_price_path, parse_dates=["timestamp"])
-prices_df = prices_df.sort_values("timestamp", ascending=False)
-latest_prices = prices_df.drop_duplicates(subset=["item_id"], keep="first")
-price_lookup = dict(zip(latest_prices["item_id"], latest_prices["price"]))
 
 
-def enrich_with_prices(df: pd.DataFrame, item_lookup: dict, price_lookup: dict) -> pd.DataFrame:
+
+
+
+async def enrich_with_prices(df: pd.DataFrame, item_lookup: dict) -> pd.DataFrame:
     log.debug("Adding prices column")
+
+    rows = await connect_to_db(list(item_lookup.values()))
+
+    data = [dict(row) for row in rows]
+
+    price_df = pd.DataFrame(data)
+
+    price_lookup = price_df.get("price").to_dict()
+
     # Add price + ISK value
-    df["price"] = df["ore"].map(item_lookup).map(price_lookup)
-    df["isk_total"] = df["units"] * df["price"]
+    print(f"Price Lookup: {price_lookup}")
+
+    df["price"] = df.get("ore").map(item_lookup)
+    df["isk_total"] = df.get("units") * price_df.get("price")
 
     df["isk_per_m3"] = df.apply(
         lambda row: row["isk_total"] / row["volume"] if row["volume"] else None,
@@ -173,13 +242,14 @@ def enrich_with_prices(df: pd.DataFrame, item_lookup: dict, price_lookup: dict) 
         df.loc[df["ore"] == "TOTAL", "price"] = None
         df.loc[df["ore"] == "TOTAL", "isk_per_m3"] = None
 
+        
+
     return df
 
 
 
-
 @app.route("/", methods=["GET","POST"])
-def index():
+async def index():
     table_html = ""
     if request.method == "POST":
         user_input = request.form.get("oredata", "")
@@ -187,7 +257,7 @@ def index():
             df = parse_input(user_input)
             sum_df = sum_ore(df)
             sum_df = volume_total(sum_df)
-            sum_df = enrich_with_prices(sum_df, item_lookup, price_lookup)
+            sum_df = await enrich_with_prices(sum_df, item_lookup)
             sum_df = sum_df.rename(columns={
                 "ore": "Ore",
                 "units": "Units",

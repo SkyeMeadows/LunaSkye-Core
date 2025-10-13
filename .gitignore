@@ -367,6 +367,6 @@ FodyWeavers.xsd
 /ESI-Interface/token.json
 /The-Market-Hand/Graphs/
 /ESI-Interface/token.json
-/ESI-Interface/Data/market_data.db
+/ESI-Interface/Data/market_historical_data.db
 /.env
 /ESI-Interface/token.json

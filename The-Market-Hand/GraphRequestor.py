@@ -89,7 +89,7 @@ log.debug("Loading list of ItemIDs")
 item_df = pd.read_csv(ID_DICTONARY_PATH).drop_duplicates(subset="typeID")
 
 # Open DB Connection
-db_path = os.path.join(DATA_DIR, "market_data.db")
+db_path = os.path.join(DATA_DIR, "market_historical_data.db")
 print(f"DB Path: {db_path}")
 
 async def connect_to_db(item_id: int, days: int = None,  db_path=db_path):

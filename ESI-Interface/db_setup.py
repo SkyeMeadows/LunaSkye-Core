@@ -3,10 +3,8 @@ import os
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-DATA_DIR = os.path.join(script_dir, "Data")
-DB_PATH = os.path.join(DATA_DIR, "market_data.db")
-
-os.makedirs(DATA_DIR, exist_ok=True)
+common_folder = os.path.join(os.path.dirname(script_dir), "Shared-Content")
+DB_PATH = os.path.join(common_folder, "market_historical_data.db")
 
 def init_db():
     first_time = not os.path.exists(DB_PATH)
