@@ -29,16 +29,10 @@
     <Content Include=".env" />
     <Content Include=".gitattributes" />
     <Content Include=".gitignore" />
-    <Content Include="Anomaly-Evaluator\.dockerignore" />
     <Content Include="Anomaly-Evaluator\anom-test.txt" />
-    <Content Include="Anomaly-Evaluator\Dockerfile" />
     <Content Include="Anomaly-Evaluator\requirements.txt" />
     <Content Include="Anomaly-Evaluator\static\style.css" />
     <Content Include="Anomaly-Evaluator\templates\index.html" />
-    <Content Include="docker-compose.yml" />
-    <Content Include="DockerAutomate.bat" />
-    <Content Include="ESI-Interface\.dockerignore" />
-    <Content Include="ESI-Interface\Dockerfile" />
     <Content Include="ESI-Interface\requirements.txt" />
     <Content Include="Fitting-Import-Calculator\fitting.txt" />
     <Content Include="Fitting-Import-Calculator\static\style.css" />
@@ -50,8 +44,6 @@
     <Content Include="Shared-Content\query_list.json" />
     <Content Include="Shared-Content\query_list_note.txt" />
     <Content Include="Shared-Content\reprocess_yield.json" />
-    <Content Include="The-Market-Hand\.dockerignore" />
-    <Content Include="The-Market-Hand\Dockerfile" />
     <Content Include="The-Market-Hand\requirements.txt" />
   </ItemGroup>
   <ItemGroup>
