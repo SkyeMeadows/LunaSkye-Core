@@ -19,7 +19,7 @@ def get_log_path(logname: str) -> str:
     logs_date_dir = os.path.join(logs_base_dir, today_str)
     os.makedirs(logs_date_dir, exist_ok=True)
     
-    logs_filename = f"{logname}---{now_str}.txt"
+    logs_filename = f"{logname}---{now_str}.log"
     return os.path.join(logs_date_dir, logs_filename)
 
 load_dotenv()
@@ -35,7 +35,7 @@ numeric_log_level = LOG_LEVEL_MAP.get(LOG_LEVEL, logging.DEBUG)
 
 # Setting up Logging
 logging.basicConfig(
-    filename=os.path.join(script_dir, "Logs", "AnomParser.txt"),
+    filename=get_log_path("AnomParser"),
     filemode='a',
     level=numeric_log_level,
     format='%(asctime)s [%(levelname)s] %(message)s', # Format's the lines as <time> <[Level]> <Message>
@@ -105,7 +105,6 @@ async def connect_to_db(item_ids: list[int],  db_path=db_path):
 async def match_item_name(item_id: int) -> str:
     matched_row = items_df[items_df["typeID"] == item_id]
     if not matched_row.empty:
-        print(matched_row)
         return matched_row.iloc[0]["typeName"]
     else:
         log.error(f"Item ID {item_id} not found in Item_IDs.csv")
@@ -175,7 +174,6 @@ def volume_total(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.concat([df, pd.DataFrame([total_row])], ignore_index=True)
     log.debug("Returning table dataframe with total row")
     log.debug(f"Dataframe being returned: {df}")
-    print(df)
     return df
 
 def style_table(df: pd.DataFrame):
@@ -210,41 +208,64 @@ def style_table(df: pd.DataFrame):
 
 
 
-async def enrich_with_prices(df: pd.DataFrame, item_lookup: dict) -> pd.DataFrame:
+async def enrich_with_prices(parsed_df: pd.DataFrame, item_lookup: dict) -> pd.DataFrame:
     log.debug("Adding prices column")
 
     rows = await connect_to_db(list(item_lookup.values()))
 
     data = [dict(row) for row in rows]
 
-    price_df = pd.DataFrame(data)
-
-    price_lookup = price_df.get("price").to_dict()
+    input_df = pd.DataFrame(data)
+    log.debug(f"Input DataFrame shape: {input_df.shape}")
+    log.debug(f"Input DataFrame columns: {input_df.columns}")
+    log.debug(f"Input DataFrame: {input_df}")
+    
+    log.debug(f"Parsed DataFrame before manipulation: {parsed_df}")
 
     # Add price + ISK value
-    print(f"Price Lookup: {price_lookup}")
+    id_map = {v: k for k, v in item_lookup.items()}
+    log.debug(f"Item ID Map: {id_map}")
 
-    df["price"] = df.get("ore").map(item_lookup)
-    df["isk_total"] = df.get("units") * price_df.get("price")
+    input_df["ore"] = input_df["item_id"].map(id_map)
 
-    df["isk_per_m3"] = df.apply(
+    merged_df = pd.merge(input_df, parsed_df, on="ore", how="left")
+    log.debug(f"Merged DataFrame: {merged_df}")
+
+    matches = set(input_df["ore"]) & set(parsed_df["ore"])
+    log.debug(f"Number of matching ore names: {len(matches)}")
+    log.debug(f"Example matches: {list(matches)[:10]}")
+
+    test_row = merged_df[merged_df["ore"] == "Zeolites"]
+    log.debug(f"Test row for 'Zeolites': {test_row}")
+
+    test_row = merged_df[merged_df["ore"] == "Brimful Zeolites"]
+    log.debug(f"Test row for 'Brimful Zeolites': {test_row}")
+
+    merged_df["isk_per_m3"] = merged_df["price"] * merged_df["volume"] / merged_df["units"]
+    log.debug(f"Merged DataFrame after calculating isk_per_m3: {merged_df}")
+
+    '''
+    merged_df["isk_per_m3"] = merged_df.apply(
         lambda row: row["isk_total"] / row["volume"] if row["volume"] else None,
         axis=1
     )
+        '''
+
+    log.debug(f"Merged DataFrame after adding isk_per_m3: {merged_df}")
 
     # Handle TOTAL row separately
-    if "TOTAL" in df["ore"].values:
+    if "TOTAL" in merged_df["ore"].values:
         log.debug("Ignoring Total row")
-        totals = df[df["ore"] != "TOTAL"].sum(numeric_only=True)
-        df.loc[df["ore"] == "TOTAL", "units"] = totals["units"]
-        df.loc[df["ore"] == "TOTAL", "volume"] = totals["volume"]
-        df.loc[df["ore"] == "TOTAL", "isk_total"] = totals["isk_total"]
-        df.loc[df["ore"] == "TOTAL", "price"] = None
-        df.loc[df["ore"] == "TOTAL", "isk_per_m3"] = None
+        totals = merged_df[merged_df["ore"] != "TOTAL"].sum(numeric_only=True)
+        merged_df.loc[merged_df["ore"] == "TOTAL", "units"] = totals["units"]
+        merged_df.loc[merged_df["ore"] == "TOTAL", "volume"] = totals["volume"]
+        merged_df.loc[merged_df["ore"] == "TOTAL", "isk_total"] = totals["isk_total"]
+        merged_df.loc[merged_df["ore"] == "TOTAL", "price"] = None
+        merged_df.loc[merged_df["ore"] == "TOTAL", "isk_per_m3"] = None
 
         
 
-    return df
+    return merged_df
 
 
 
@@ -255,9 +276,13 @@ async def index():
         user_input = request.form.get("oredata", "")
         if user_input.strip():
             df = parse_input(user_input)
+            log.debug(f"Parsed user input into dataframe: {df}")
             sum_df = sum_ore(df)
+            log.debug(f"Summed dataframe: {sum_df}")
             sum_df = volume_total(sum_df)
+            log.debug(f"Totaled Volume dataframe: {sum_df}")
             sum_df = await enrich_with_prices(sum_df, item_lookup)
+            log.debug(f"Enriched dataframe with prices: {sum_df}")
             sum_df = sum_df.rename(columns={
                 "ore": "Ore",
                 "units": "Units",

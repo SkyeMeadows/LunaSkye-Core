@@ -3,10 +3,10 @@ import time
 import subprocess
 
 def run_AT_manager():
-    subprocess.run(["/home/skye/programs/.venv/bin/python", "/home/skye/programs/Manager-AT.py"])
+    subprocess.run(["/venv/bin/python", "./Manager-AT.py"])
 
 def run_data_gatherer():
-    subprocess.run(["/home/skye/programs/.venv/bin/python", "/home/skye/programs/MarketData.py"])
+    subprocess.run(["/venv/bin/python", "./MarketData.py"])
 
 # Schedule jobs
 schedule.every().hour.at(":01").do(run_AT_manager)

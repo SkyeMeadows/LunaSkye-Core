@@ -1,4 +1,5 @@
 import json
+import re
 import aiofiles
 import requests
 import os
@@ -11,6 +12,8 @@ from requests import ReadTimeout
 import sys
 import pandas as pd
 import aiosqlite
+import aiohttp
+import time as t
 
 
 ## Setup Logging Paths
@@ -85,6 +88,15 @@ CLIENT_SECRET = os.getenv("ESI_CLIENT_SECRET")
 log.debug("ESI Client Secret Loaded")
 REDIRECT_URI = os.getenv("ESI_REDIRECT_URI")
 log.debug("ESI Redirect URI Loaded")
+ESI_PROXY_KEY = os.getenv("ESI_PROXY_KEY")
+log.debug("ESI Proxy Key Loaded")
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = os.getenv("OAUTHLIB_INSECURE_TRANSPORT")
+if os.getenv("OAUTHLIB_INSECURE_TRANSPORT") == "1":
+    print("USING PROXY - INSECURE TRANSPORT ENABLED")
+    log.debug("OAUTHLIB_INSECURE_TRANSPORT Enabled")
+else:
+    print("NOT USING PROXY - INSECURE TRANSPORT DISABLED")
+    log.debug("OAUTHLIB_INSECURE_TRANSPORT Disabled")
 
 # ESI paths
 AUTH_BASE = "https://login.eveonline.com/v2/oauth/authorize"
@@ -94,12 +106,33 @@ log.debug("ESI Query Path Bases Loaded")
 # Database Paths
 DB_PATH = os.path.join(common_folder, "market_historical_data.db")
 
+last_status_check = 0
+STATUS_CACHE_DURATION = 300  # seconds = 5 minutes
+cached_status = None
+
 # TOKEN AUTH FUNCTIONS
 async def save_token(new_token):
     async with aiofiles.open(token_path, "w") as f: # Open token file in 'write' (will overwrite previous token)
         content = await f.read()
         await json.dump(content, f) # Write token
     log.debug("Token Saved")
+
+async def get_esi_status():
+    global last_status_check, cached_status
+
+    if t.time() - last_status_check < STATUS_CACHE_DURATION and cached_status is not None:
+        log.debug("Returning cached status check")
+        return cached_status
+
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get("https://esi.evetech.net/latest/status/", timeout=5) as resp:
+                cached_status = await resp.json()
+                last_status_check = t.time()
+                return cached_status
+        except Exception as e:
+            log.error(f"ESI status check failed: {e}")
+            return cached_status
 
 async def get_authenticated_session():
     try:
@@ -132,13 +165,8 @@ async def get_authenticated_session():
     log.debug("OAuth2Session Established")
 
     try:
-        test_resp = esi.get("https://esi.evetech.net/latest/status/", timeout=5) # Ping EVE Server status to verify token works
-        if test_resp.status_code != 200: # If code is not 200 OK
-            log.critical(f"ESI auth failed with status {test_resp.status_code}: {test_resp.text}")
-            log.critical(f"Exiting with error code: 100")
-            sys.exit(100) # Code 100 = ESI Status failure
-        else:
-            log.debug("Test to EVE Status successful")
+        test_resp = await get_esi_status()
+        log.debug("Test to EVE Status successful")
     except Exception as e:
         log.critical(f"Failed to verify token with ESI: {e}")
         raise
@@ -149,31 +177,31 @@ async def get_authenticated_session():
 async def process_extract_sellOrders(item_id, location_id, is_structure=False, esi_session=None, system_name="Unknown", ESI_MAX_PAGES=2):
     log.debug(f"esi_session at the start: {esi_session}")
     if esi_session is None:
-        log.debug("Required to get new session when extracting sell orders")
+        log.debug(f"[{system_name}] Required to get new session when extracting sell orders")
         try:
             esi_session = await get_authenticated_session() # Go establish a new session if not already established
-            log.info("Authenticated session created successfully.")
+            log.info(f"[{system_name}] Authenticated session created successfully.")
         except Exception as e:
             log.critical("Failed to create authenticated session:")
             return {"sell_orders": []}
     else:
-        log.debug(f"Session passed in: {esi_session}")
+        log.debug(f"[{system_name}] Session passed in: {esi_session}")
 
     # Getting token for header
     try:
         async with aiofiles.open(token_path, "r") as f:
             content = await f.read()
             token = json.loads(content) # load token file
-            log.debug("Token loaded successfully")
+            log.debug(f"[{system_name}] Token loaded successfully")
     except Exception as e:
-        log.critical(f"Failed to load token: {e}")
+        log.critical(f"[{system_name}] Failed to load token: {e}")
         raise
 
     # Header setup (required for compliance)
     headers = {
         "Authorization": f'Bearer {token["access_token"]}',
         "Content-Type": "application/json",
-        "User-Agent": "The Market Hand (admin contact: skyemeadows20+EVE@gmail.com)",
+        "User-Agent": "LunaSkye Core (admin contact: skyemeadows20+EVE-ESI@gmail.com)",
     }
 
     error_count = 0
@@ -182,27 +210,27 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
     page = 1 # Marks how many pages are complete
     ESI_MAX_PAGES_REQUESTED = ESI_MAX_PAGES
 
-    log.info(f"Fetching {item_id} from {'structure' if is_structure else 'region'} {location_id} ({system_name})")
+    log.info(f"[{system_name}] Fetching {item_id} from {'structure' if is_structure else 'region'} {location_id} ({system_name})")
     raw_entries = [] # Cleaning to avoid data contaimination
 
     if is_structure: # This checks to see if the structure is a player-owned (private) structure
-        log.debug("Is Player Structure")
+        log.debug(f"[{system_name}] Is Player Structure")
         all_data = [] # Cleaning to avoid data contaimination
         while page <= ESI_MAX_PAGES: # This ensures we don't query more data than we need
-            log.debug(f"Querying Player Structure Data: page {page}")
+            log.debug(f"[{system_name}] Querying Player Structure Data: page {page}")
             url = f"https://esi.evetech.net/latest/markets/structures/{location_id}/?type_id={item_id}&page={page}" # Setting URL to fetch Data
-            log.info(f"Fetching {system_name} market page {page} for item {item_id}...")
+            log.info(f"[{system_name}] Fetching {system_name} market page {page} for item {item_id}...")
             try:
                 response = esi_session.get(url, headers=headers, timeout=10)
                 if response.status_code == 401:
-                    log.critical("Token is invalid, exiting...")
-                    log.critical("Program is exiting with error code 101")
+                    log.critical(f"[{system_name}] Token is invalid, exiting...")
+                    log.critical(f"[{system_name}] Program is exiting with error code 101")
                     sys.exit(101)
                 if "X-Pages" in response.headers:
                     ESI_MAX_PAGES = min(int(response.headers["X-Pages"]), ESI_MAX_PAGES_REQUESTED)
-                    log.debug(f"Max pages available: {response.headers['X-Pages']}, querying up to page {ESI_MAX_PAGES}")
+                    log.debug(f"[{system_name}] Max pages available: {response.headers['X-Pages']}, querying up to page {ESI_MAX_PAGES}")
                 if response.status_code != 200:
-                    log.warning(f"Page {page} failed: {response.status_code}") # Logs warning for any failed items
+                    log.warning(f"[{system_name}] Page {page} failed: {response.status_code}") # Logs warning for any failed items
                     break
                 page_data = response.json() # Saves the response to a variable
                 if not page_data:
@@ -215,7 +243,7 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
                 errorreset = int(response.headers.get("X-ESI-Error-Limit-Reset", 0))
 
             except ReadTimeout as e:
-                log.warning(f"Market API request timed out: {e}")
+                log.warning(f"[{system_name}] Market API request timed out: {e}")
                 error_count += 1
                 errors_detected += 1
                 continue
@@ -223,47 +251,41 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
             if errorsleft < 3:
                 break
             elif errorsleft < 10:
-                print(
-                    f"WARNING: Errors remaining: {errorsleft}. Error limit reset: {errorreset} seconds."
-                )
-                log.error(f"Errors remaining: {errorsleft}. Error limit reset: {errorreset}")
+                log.error(f"[{system_name}] Errors remaining: {errorsleft}. Error limit reset: {errorreset}")
             
             if response.status_code != 200:
                 errors_detected += 1
                 error_count += 1
 
                 error_code = response.status_code
-                log.error(f"Error detected: {errors_detected} status code: {error_code}")
+                log.error(f"[{system_name}] Error detected: {errors_detected} status code: {error_code}")
 
                 error_details = response.json()
                 error = error_details["error"]
-                log.error(
-                    f"Error fetching data from page {page}. status code: {error_code}, details: {error}"
-                )
+                log.error(f"[{system_name}] Error fetching data from page {page}. status code: {error_code}, details: {error}")
 
                 if tries < 5:
-                    log.error(f"error: {error_count}")
+                    log.error(f"[{system_name}] error: {error_count}")
                     tries += 1
                     time.sleep(3)
                     continue
                 else:
-                    print(f"Reached the 5th try and giving up on page {page} for item {item_id} in private structure in {system_name}.")
-                    log.error(f"Reached the 5th try and giving up on page {page} for item {item_id} in private structure in {system_name}.")
+                    log.error(f"[{system_name}] Reached the 5th try and giving up on page {page} for item {item_id} in private structure in {system_name}.")
                     tries = 0
                     continue
             else:
                 tries = 0
             try:
                 orders = response.json()
-                log.info(f"Fetched {len(orders)} orders from page {page}.")
+                log.info(f"[{system_name}] Fetched {len(orders)} orders from page {page}.")
             except ValueError:
-                log.error(f"Error decoding JSON response from page {page}.")
+                log.error(f"[{system_name}] Error decoding JSON response from page {page}.")
                 failed_pages_count += 1
                 continue
             page += 1
 
             if not orders:
-                log.error(f"No orders found in page {page}.")
+                log.error(f"[{system_name}] No orders found in page {page}.")
                 break
 
         await asyncio.sleep(1)
@@ -275,26 +297,26 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
         all_data = [] # Clearing to ensure clean data
         while page <= ESI_MAX_PAGES:
             try:
-                log.info("Retrieving Jita Data")
-                log.debug(f"Querying NPC Structure Data: page {page}")
+                log.info(f"[{system_name}] Retrieving Jita Data")
+                log.debug(f"[{system_name}] Querying NPC Structure Data: page {page}")
                 response = requests.get(url, headers=headers, timeout=10) # Waits up to 10 seconds for a response
                 if response.status_code == 401:
-                    log.critical("Token is invalid, exiting...")
-                    log.critical("Program is exiting with error code 101")
+                    log.critical(f"[{system_name}] Token is invalid, exiting...")
+                    log.critical(f"[{system_name}] Program is exiting with error code 101")
                     sys.exit(101)
                 if "X-Pages" in response.headers:
                     max_pages = int(response.headers["X-Pages"])
-                    log.debug(f"Max pages: {max_pages}...")
+                    log.debug(f"[{system_name}] Max pages: {max_pages}...")
                 if response.status_code == 200:
                     raw_entries = response.json() # Saves order data to a variable to be filtered
                 else:
-                    log.warning(f"Error {response.status_code} for item {item_id}")
+                    log.warning(f"[{system_name}] Error {response.status_code} for item {item_id}")
             
                 errorsleft = int(response.headers.get("X-ESI-Error-Limit-Remain", 0))
                 errorreset = int(response.headers.get("X-ESI-Error-Limit-Reset", 0))
 
             except ReadTimeout as e:
-                log.warning(f"Market API request timed out: {e}")
+                log.warning(f"[{system_name}] Market API request timed out: {e}")
                 error_count += 1
                 errors_detected += 1
                 continue
@@ -302,31 +324,25 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
             if errorsleft < 3:
                 break
             elif errorsleft < 10:
-                print(
-                    f"WARNING: Errors remaining: {errorsleft}. Error limit reset: {errorreset} seconds."
-                )
-                log.error(f"Errors remaining: {errorsleft}. Error limit reset: {errorreset}")
+                log.error(f"[{system_name}] Errors remaining: {errorsleft}. Error limit reset: {errorreset}")
             
             if response.status_code != 200:
                 errors_detected += 1
                 error_count += 1
 
                 error_code = response.status_code
-                log.error(f"Error detected: {errors_detected} status code: {error_code}")
+                log.error(f"[{system_name}] Error detected: {errors_detected} status code: {error_code}")
 
                 error_details = response.json()
                 error = error_details["error"]
-                log.error(
-                    f"Error fetching data from page {page}. status code: {error_code}, details: {error}"
-                )
-                print(f"Tries: {tries}")
+                log.error(f"[{system_name}] Error fetching data from page {page}. status code: {error_code}, details: {error}")
                 if tries < 5:
-                    log.error(f"error: {error_count}")
+                    log.error(f"[{system_name}] error: {error_count}")
                     tries += 1
                     continue
                 else:
-                    print(f"Reached the 5th try and giving up on page {page} for item {item_id} in public structure in {system_name}.")
-                    log.error(f"Reached the 5th try and giving up on page {page} for item {item_id} in public structure in {system_name}.")
+                    print(f"[{system_name}] Reached the 5th try and giving up on page {page} for item {item_id} in public structure in {system_name}.")
+                    log.error(f"[{system_name}] Reached the 5th try and giving up on page {page} for item {item_id} in public structure in {system_name}.")
                     page += 1
                     tries = 0
                     continue
@@ -334,15 +350,15 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
                 tries = 0
             try:
                 orders = response.json()
-                log.info(f"Fetched {len(orders)} orders from page {page}.")
+                log.info(f"[{system_name}] Fetched {len(orders)} orders from page {page}.")
             except ValueError:
-                log.error(f"Error decoding JSON response from page {page}.")
+                log.error(f"[{system_name}] Error decoding JSON response from page {page}.")
                 failed_pages_count += 1
                 continue
             page += 1
 
             if not orders:
-                log.error(f"No orders found in page {page}.")
+                log.error(f"[{system_name}] No orders found in page {page}.")
                 break
         
         await asyncio.sleep(1)
@@ -363,9 +379,9 @@ async def process_extract_sellOrders(item_id, location_id, is_structure=False, e
         "sell_orders": sell_orders, # Returns all order data for sell orders
     }
 
-async def calculate_5_percent_sell(sell_orders):
+async def calculate_5_percent_sell(sell_orders, location):
     if not sell_orders: # If there is no data
-        log.error("No Valid Data")
+        log.error(f"[{location}] No Valid Data")
         return None
 
     prices = sorted([entry["price"] for entry in sell_orders]) # Sort by price
@@ -375,16 +391,17 @@ async def calculate_5_percent_sell(sell_orders):
     lowest_5_percent = prices[:n] # Applies the above filter
 
     if not lowest_5_percent:
-        log.warning("No valid prices in lowest 5% slice")
+        log.warning(f"[{location}] No valid prices in lowest 5% slice")
         return None
 
     avg_cheapest_price = sum(lowest_5_percent) / len(lowest_5_percent) # Creates the average pice
 
     return avg_cheapest_price # Returns average price of the requested item's sell order data
 
-async def get_volume_sold(item, region, esi_session):
+'''
+async def get_volume_sold(item, region, esi_session, location):
     if target_start_time <= now < target_end_time:
-        log.debug(f"Is is time to query daily volume data")
+        log.debug(f"[{location}] Is is time to query daily volume data")
     else:
         return None
     
@@ -392,9 +409,9 @@ async def get_volume_sold(item, region, esi_session):
         async with aiofiles.open(token_path, "r") as f:
             content = await f.read()
             token = json.loads(content) # load token file
-            log.debug("Token loaded successfully")
+            log.debug(f"[{location}] Token loaded successfully")
     except Exception as e:
-        log.critical(f"Failed to load token: {e}")
+        log.critical(f"[{location}] Failed to load token: {e}")
         raise
     
     headers = {
@@ -404,36 +421,36 @@ async def get_volume_sold(item, region, esi_session):
     }
 
     if esi_session is None:
-        log.debug("Required to get new session when extracting sell orders")
+        log.debug(f"[{location}] Required to get new session when extracting sell orders")
         try:
             esi_session = await get_authenticated_session() # Go establish a new session if not already established
-            log.info("Authenticated session created successfully.")
+            log.info(f"[{location}] Authenticated session created successfully.")
         except Exception as e:
-            log.critical("Failed to create authenticated session:")
+            log.critical(f"[{location}] Failed to create authenticated session:")
             return {"sell_orders": []}
     else:
-        log.debug(f"Session passed in: {esi_session}")
+        log.debug(f"[{location}] Session passed in: {esi_session}")
 
     all_data = []
     url = f"https://esi.evetech.net/latest/markets/{region}/history/?datasource=tranquility&type_id={item}"
     
     try:
-        log.debug(f"Requesting: {url}")
+        log.debug(f"[{location}] Requesting: {url}")
         response = esi_session.get(url, headers=headers, timeout=10)
         if response.status_code != 200:
-            log.warning(f"Fetching Volume data for {region} FAILED: {response.status_code}")
+            log.warning(f"[{location}] Fetching Volume data for {region} FAILED: {response.status_code}")
             return None
-        log.debug(f"Headers: {response.headers}")
+        log.debug(f"[{location}] Headers: {response.headers}")
         all_data.extend(response.json())
 
     except Exception as e:
-        log.warning(f"Exception occoured while fetching volume data for {region}: {e}")
+        log.warning(f"[{location}] Exception occoured while fetching volume data for {region}: {e}")
 
-    log.debug(f"Length of data: {len(all_data)}")
-    log.debug(f"Contents of data: {all_data}")
+    log.debug(f"[{location}] Length of data: {len(all_data)}")
+    log.debug(f"[{location}] Contents of data: {all_data}")
 
     if not all_data:
-        log.warning(f"No volume data for item {item} in region {region}")
+        log.warning(f"[{location}] No volume data for item {item} in region {region}")
         previous_day_volume = 0
     else:
         previous_day_volume = all_data[-1]["volume"]
@@ -446,57 +463,105 @@ async def get_volume_sold(item, region, esi_session):
         }
 
     return volume_data
+'''
 
-async def query_price_db(ore_id, system):
+async def query_price_db(item_id, system):
     price_data_path = os.path.join(common_folder, "market_historical_data.db")
+    log.debug(f"[{system}] Loaded Price Database path as: {price_data_path}")
 
-    log.debug("Gathering price data from database")
+    log.debug("Establishing query")
     query = """
         SELECT timestamp, item_id, system, price
         FROM market_orders
         WHERE item_id = ?
         AND system = ?
-        AND timestamp >= datetime('now', '-10 minutes')
-        ORDER BY timestamp ASC
         """
 
     async with aiosqlite.connect(price_data_path) as db:
+        log.debug(f"[{system}] Executing query")
         db.row_factory = aiosqlite.Row # makes rows act like dicts
-        cursor = await db.execute(query, (ore_id, system))
-        rows = await cursor.fetchall()
+        async with db.execute(query, (item_id, system)) as cursor:
+            rows = await cursor.fetchall()
+            log.debug(f"[{system}] Retrieved rows: {rows}")
 
-    return rows
+    log.debug(f"[{system}] Converting rows to list of dicts")
+    data = [dict(row) for row in rows]
+    df = pd.DataFrame(data)
+
+    log.debug(f"[{system}] Returning Dataframe from query: {df}")
+    return df
 
 async def calculate_ore_value(ore_id, location):
 
-    log.debug("Calculating Ore Value...")
-    log.debug("Reading static paths")
-    reprocess_yield_list = DB_PATH
+    log.debug(f"[{location}] Calculating Ore Value...")
+    log.debug(f"[{location}] Reading static paths")
+    reprocess_yield_list = await load_reprocessing_yield()
 
-    log.debug("Reading item id CSV")
+    log.debug(f"[{location}] Reading item id CSV")
     item_id_dict = pd.read_csv(item_ids_path)
 
-    log.debug(f"Locating the name for the ore with the typeID: {ore_id}")
+    log.debug(f"[{location}] Locating the name for the ore with the typeID: {ore_id}")
     ore_name = item_id_list.loc[item_id_list["typeID"] == ore_id, "typeName"].values[0]
-    log.debug(f"Located ore's name as: {ore_name} for typeID {ore_id}")
+    log.debug(f"[{location}] Located ore's name as: {ore_name} for typeID {ore_id}")
 
-    log.debug("Gathering refinement data")
+    log.debug(f"[{location}] Gathering refinement data")
+    log.debug(f"[{location}] {type(reprocess_yield_list[ore_name])}")
+    log.debug(reprocess_yield_list[ore_name])
     ore_yield = {name: quantity for name, quantity in reprocess_yield_list[ore_name].items() if quantity != 0}
-    log.debug(f"Gathered refinement data for {ore_name} as {ore_yield}")
+    log.debug(f"[{location}] Gathered refinement data for {ore_name} as {ore_yield}")
+    
+    # Get Item ID from name of each refined material
+    refined_materials = {
+        material: {
+            "typeID": item_id_list.loc[item_id_list["typeName"] == material, "typeID"].values[0],
+            "quantity": quantity,
+        }
+        for material, quantity in ore_yield.items()
+        if material in item_id_list["typeName"].values
+    }
+    log.debug(f"Mapped refined materials for ore {ore_name} to {refined_materials}")
 
-    price_data = await query_price_db(ore_id, location)
+    # Get price of each refined material from DB using item ID
+    tasks = [
+        query_price_db(material_data["typeID"], location)
+        for material_data in refined_materials.values()
+    ]
+    log.debug(f"[{location}] Setup tasks for querying prices as: {tasks}")
+    prices = await asyncio.gather(*tasks)
+    log.debug(f"[{location}] Gathered prices for refined materials: {prices}")
 
-    latest_prices = price_data.drop_duplicates(subset="typeName", keep="first")
+    # Attach prices back to materials
+    for (material, data), price_result in zip(refined_materials.items(), prices):
+        df = None
 
-    recent_prices = dict(zip(latest_prices["typeName"], latest_prices["price"]))
+        if isinstance(price_result, list) and price_result:
+            df = pd.DataFrame(price_result)
+        elif hasattr(price_result, "loc"):
+            df = price_result.copy()
+        elif isinstance(price_result, dict):
+            df = pd.DataFrame([price_result])
 
-    ore_value = {}
-    for material, quantity in ore_yield.items():
-        price = recent_prices.get(material, 0)
-        ore_value[material] = quantity * price
+        
+        if df is not None and not df.empty:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df = df.sort_values("timestamp", ascending=False)
+            df = df.drop_duplicates(subset=["item_id", "system"], keep="first")
 
-    ore_value_total = (sum(ore_value.values()) * 0.9063) / 100 # Max refine is 90.63%
+            latest_price = df.iloc[0]["price"]
+            data["price"] = latest_price
+        else:
+            data["price"] = 0
 
+    # Multiply price by quantity from yield data based on name and sum
+    ore_value_total = sum(
+        data["quantity"] * data["price"]
+        for data in refined_materials.values()
+    )
+
+    log.debug(f"[{location}] Factoring in max refine rate of 90.62%")
+    ore_value_total = (ore_value_total * 0.9062) / 100 # Max refine is 90.62%
+
+    log.debug(f"[{location}] Returning ore value for {ore_id}, mapped to {ore_name}, as {ore_value_total}")
     return ore_value_total
 
 
@@ -561,207 +626,145 @@ async def process_item_jita(items, ore_list, reprocess_yield_list, esi):
         await db.execute("PRAGMA journal_mode=WAL;")
         for item in items:
             try:
-                log.debug(f"Processing {item} for Jita")
+                log.debug(f"[Jita] Processing {item} for Jita")
                 
                 # Check if Item is an ore, if so, handle differently, if not, continue as normal
-                log.debug(f"Checking if item ID {item} is an ore")
+                log.debug(f"[Jita] Checking if item ID {item} is an ore")
                 if item in ore_list:
-                    log.debug(f"Item {item} is an ore")
+                    log.debug(f"[Jita] Item {item} is an ore")
                     price_data_path = datapath_jita_sell_5_avg
 
-                    log.debug(f"Calculating ore value for {item}")
+                    log.debug(f"[Jita] Calculating ore value for {item}")
                     ore_value = await calculate_ore_value(item, "Jita")
-                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
+                    log.debug(f"[Jita] Calculated value for ore with ID: {item} is {ore_value}")
 
-                    log.debug("Writing Jita data to SQLite Database")
+                    log.debug(f"[Jita] Writing Jita data to SQLite Database")
                     await db.execute("""
                         INSERT INTO market_orders (timestamp, item_id, system, price) 
                         VALUES (?, ?, ?, ?)                
                     """, (current_datetime, item, "Jita", ore_value))
                     await db.commit()
 
-                    log.info(f"Jita Data Recorded for {item}, moving to next item")
+                    log.info(f"[Jita] Jita Data Recorded for {item}, moving to next item")
                     continue
 
-                log.debug("Extracting Jita Sell Orders")
+                log.debug(f"[Jita] Extracting Jita Sell Orders")
                 jita_sell_orders = await process_extract_sellOrders(item, JITA_STATION, is_structure=False, esi_session=esi, system_name="Jita")
-                log.debug("Calculating L5PS Jita Sell Orders")
-                jita_sell_orders_5_avg = await calculate_5_percent_sell(jita_sell_orders["sell_orders"])
-                log.debug("Jita Data pulled and calculated")
+                log.debug(f"[Jita] Calculating L5PS Jita Sell Orders")
+                jita_sell_orders_5_avg = await calculate_5_percent_sell(jita_sell_orders["sell_orders"], "Jita")
+                log.debug(f"[Jita] Jita Data pulled and calculated")
 
-                log.debug("Writing Jita data to SQLite Database")
+                log.debug(f"[Jita] Writing Jita data to SQLite Database")
                 await db.execute("""
                     INSERT INTO market_orders (timestamp, item_id, system, price)
                     VALUES(?, ?, ?, ?)
                 """, (current_datetime, item, "Jita", jita_sell_orders_5_avg))
                 await db.commit()
 
-                log.info(f"Jita Data Recorded for {item}, moving to next item")  
+                log.info(f"[Jita] Jita Data Recorded for {item}, moving to next item")  
 
             except Exception as e:  
-                log.error(f"Exception caught when processsing Jita Item {item}: {e}")
+                log.error(f"[Jita] Exception caught when processsing Jita Item {item}: {e}")
 
 
 async def process_item_BRAVE_HOME(items, ore_list, reprocess_yield_list, esi):
-    log.debug(f"Got {len(items)} items for BRAVE_HOME Processing: {items}")
+    log.debug(f"[BRAVE_HOME] Got {len(items)} items for BRAVE_HOME Processing: {items}")
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("PRAGMA journal_mode=WAL;")
         for item in items:
             try:
-                log.debug(f"Checking if item ID {item} is an ore")
+                log.debug(f"[BRAVE_HOME] Checking if item ID {item} is an ore")
                 if item in ore_list:
-                    log.debug(f"Item {item} is an ore")
+                    log.debug(f"[BRAVE_HOME] Item {item} is an ore")
                     price_data_path = datapath_BRAVE_HOME_sell_5_avg
 
-                    log.debug(f"Calculating ore value for {item}")
+                    log.debug(f"[BRAVE_HOME] Calculating ore value for {item}")
                     ore_value = await calculate_ore_value(item, "BRAVE_HOME")
-                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
+                    log.debug(f"[BRAVE_HOME] Calculated value for ore with ID: {item} is {ore_value}")
 
-                    log.debug("Writing BRAVE_HOME data to SQLite Database")
+                    log.debug(f"[BRAVE_HOME] Writing BRAVE_HOME data to SQLite Database")
                     await db.execute("""
                         INSERT INTO market_orders (timestamp, item_id, system, price) 
                         VALUES (?, ?, ?, ?)                
                     """, (current_datetime, item, "BRAVE_HOME", ore_value))
                     await db.commit()
                         
-                    log.debug("BRAVE_HOME CSV Written")
-
-                    log.info(f"BRAVE_HOME Data Recorded for {item}, moving to next item")
+                    log.info(f"[BRAVE_HOME] Data Recorded for {item}, moving to next item")
                     continue
                 # 2) BRAVE_HOME
                 ## PRICE
-                log.debug(f"Extracting BRAVE HOME Sell Orders with ESI Session: {esi}")
+                log.debug(f"[BRAVE_HOME] Extracting BRAVE HOME Sell Orders with ESI Session: {esi}")
                 BRAVE_HOME_sell_orders = await process_extract_sellOrders(item, BRAVE_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="BRAVE_HOME")
 
                 if not BRAVE_HOME_sell_orders["sell_orders"]:
-                    log.warning(f"No sell orders for item {item} in BRAVE_HOME - skipping.")
+                    log.warning(f"[BRAVE_HOME] No sell orders for item {item} in BRAVE_HOME - skipping.")
                     continue
                 
-                log.debug("Calculating L5PS BRAVE HOME Sell Orders")
-                BRAVE_HOME_sell_orders_5_avg = await calculate_5_percent_sell(BRAVE_HOME_sell_orders["sell_orders"])    
+                log.debug(f"[BRAVE_HOME] Calculating L5PS BRAVE HOME Sell Orders")
+                BRAVE_HOME_sell_orders_5_avg = await calculate_5_percent_sell(BRAVE_HOME_sell_orders["sell_orders"], "BRAVE_HOME")    
 
-                log.debug("Writing BRAVE_HOME data to SQLite Database")
+                log.debug(f"[BRAVE_HOME] Writing BRAVE_HOME data to SQLite Database")
                 await db.execute("""
                     INSERT INTO market_orders (timestamp, item_id, system, price)
                     VALUES(?, ?, ?, ?)
                 """, (current_datetime, item, "BRAVE_HOME", BRAVE_HOME_sell_orders_5_avg))
                 await db.commit()
 
-                log.info(f"BRAVE HOME Data Recorded for {item}, moving to next item")
+                log.info(f"[BRAVE_HOME] BRAVE HOME Data Recorded for {item}, moving to next item")
 
             except Exception as e:
-                log.warning(f"Failed to process price for item {item} in BRAVE_HOME: {e}")
-            
-            ## VOLUME 
-            """
-            if target_start_time <= now < target_end_time:
-                log.debug(f"Is is time to query daily volume data")
-            else:
-                log.debug("Not time to query volume data")
-                continue
-            
-            BRAVE_HOME_volume_sold = await get_volume_sold(item, BRAVE_HOME_REGION, esi)
-
-            volume_sold = BRAVE_HOME_volume_sold["volume_sold"]
-
-            output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
-            if file_is_empty:
-                writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
-            if BRAVE_HOME_volume_sold is None:
-                log.debug("Received No Value, Skipping")
-                continue
-            writer.writerow({
-                "date": today,
-                "item_id": item,
-                "region": "Tenerefis",
-                "volume_sold": volume_sold
-            })
-
-            async with aiofiles.open(datapath_BRAVE_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
-                await data.write(output.getvalue())
-                """
+                log.warning(f"[BRAVE_HOME] Failed to process price for item {item} in BRAVE_HOME: {e}")
 
 
 async def process_item_GSF_HOME(items, ore_list, reprocess_yield_list, esi):
-    log.debug(f"Got {len(items)} items for GSF_HOME Processing: {items}")
+    log.debug(f"[GSF_HOME] Got {len(items)} items for GSF_HOME Processing: {items}")
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("PRAGMA journal_mode=WAL;")
         for item in items:
             try:
-                log.debug(f"Checking if item ID {item} is an ore")
+                log.debug(f"[GSF_HOME] Checking if item ID {item} is an ore")
                 if item in ore_list:
-                    log.debug(f"Item {item} is an ore")
+                    log.debug(f"[GSF_HOME] Item {item} is an ore")
                     price_data_path = datapath_GSF_HOME_sell_5_avg
 
-                    log.debug(f"Calculating ore value for {item}")
+                    log.debug(f"[GSF_HOME] Calculating ore value for {item}")
                     ore_value = await calculate_ore_value(item, "GSF_HOME")
-                    log.debug(f"Calculated value for ore with ID: {item} is {ore_value}")
+                    log.debug(f"[GSF_HOME] Calculated value for ore with ID: {item} is {ore_value}")
 
-                    log.debug("Writing GSF_HOME data to SQLite Database")
+                    log.debug(f"[GSF_HOME] Writing GSF_HOME data to SQLite Database")
                     await db.execute("""
                         INSERT INTO market_orders (timestamp, item_id, system, price)
                         VALUES(?, ?, ?, ?)
                     """, (current_datetime, item, "GSF_HOME", GSF_HOME_sell_orders_5_avg))
                     await db.commit()
 
-                    log.info(f"GSF_HOME Data Recorded for {item}, moving to next item")
+                    log.info(f"[GSF_HOME] GSF_HOME Data Recorded for {item}, moving to next item")
                     continue
 
                 # 3) GSF_HOME
                 ## PRICE
-                log.debug(f"Extracting GSF HOME Sell Orders with ESI Session: {esi}")
+                log.debug(f"[GSF_HOME] Extracting GSF HOME Sell Orders with ESI Session: {esi}")
                 GSF_HOME_sell_orders = await process_extract_sellOrders(item, GSF_HOME_STRUCTURE, is_structure=True, esi_session=esi, system_name="GSF_HOME")
                 
                 if not GSF_HOME_sell_orders["sell_orders"]:
-                    log.warning(f"No sell orders for item {item} in GSF_HOME - skipping.")
+                    log.warning(f"[GSF_HOME] No sell orders for item {item} in GSF_HOME - skipping.")
                     continue
                 
-                log.debug("Calculating L5PS GSF HOME Sell Orders")
-                GSF_HOME_sell_orders_5_avg = await calculate_5_percent_sell(GSF_HOME_sell_orders["sell_orders"])
+                log.debug(f"[GSF_HOME] Calculating L5PS GSF HOME Sell Orders")
+                GSF_HOME_sell_orders_5_avg = await calculate_5_percent_sell(GSF_HOME_sell_orders["sell_orders"], "GSF_HOME")
 
-                log.debug("Writing GSF_HOME data to SQLite Database")
+                log.debug(f"[GSF_HOME] Writing GSF_HOME data to SQLite Database")
                 await db.execute("""
                     INSERT INTO market_orders (timestamp, item_id, system, price)
                     VALUES(?, ?, ?, ?)
                 """, (current_datetime, item, "GSF_HOME", GSF_HOME_sell_orders_5_avg))
                 await db.commit()
                 
-                log.info(f"GSF HOME Data Recorded for {item}, moving to next item")
+                log.info(f"[GSF_HOME] GSF HOME Data Recorded for {item}, moving to next item")
             
             except Exception as e:
-                log.warning(f"Failed to process price for item {item} in GSF_HOME: {e}")
+                log.warning(f"[GSF_HOME] Failed to process price for item {item} in GSF_HOME: {e}")
             
-            ## VOLUME   
-            """ 
-            if target_start_time <= now < target_end_time:
-                log.debug(f"Is is time to query daily volume data")
-            else:
-                log.debug("Not time to query volume data")
-                continue
-
-            GSF_HOME_volume_sold = await get_volume_sold(item, GSF_HOME_REGION, esi)
-
-            volume_sold = GSF_HOME_volume_sold["volume_sold"]
-
-            output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=CSV_Volume_Sold_Columns)
-            if file_is_empty:
-                writer.writeheader() # writes from fieldnames above ["date", "item_id", "region", "volume_sold"]
-            if GSF_HOME_volume_sold is None:
-                log.debug("Received No Value, Skipping")
-                continue
-            writer.writerow({
-                "date": today,
-                "item_id": item,
-                "region": "Insmother",
-                "volume_sold": volume_sold
-            })
-
-            async with aiofiles.open(datapath_GSF_HOME_region_volume, mode='a', newline='', encoding='utf-8') as data:
-                await data.write(output.getvalue())
-            """
-                
 
 async def main():
     log.info("Starting Data Processing")

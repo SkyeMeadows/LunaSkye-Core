@@ -23,16 +23,15 @@ echo Deploying to remote server
 echo ===========================
 
 :: Sending Files to Server
-scp -r ./Anomaly-Evaluator skye@100.108.98.44:/home/skye/programs
-scp -r ./ESI-Interface skye@100.108.98.44:/home/skye/programs
-scp -r ./The-Market-Hand skye@100.108.98.44:/home/skye/programs
+SRC="/mnt/c/Programs/2-EVE/LunaSkye-Core/"
+DEST="skye@100.108.98.44:/home/skye/projects/"
 
-ssh skye@100.108.98.44 "cd /home/skye/programs && docker login && docker-compose build Anomaly-Evaluator The-Market-Hand ESI-Interface"
+rsync -az --info=progress2 "$SRC/Anomaly-Evaluator" "$DEST"
+rsync -az --info=progress2 "$SRC/ESI-Interface" "$DEST"
+rsync -az --info=progress2 "$SRC/Shared-Content" "$DEST"
+rsync -az --info=progress2 "$SRC/The-Market-Hand" "$DEST"
 
-IF %ERRORLEVEL% NEQ 0 (
-    echo Remote deployment failed!
-    exit /b 1
-)
+rsync -az --info=progress2 "$SRC/venv" "$DEST"
 
 :: Sending Environment File to Server
 scp ./.env skye@100.108.98.44:/home/skye/programs
@@ -40,7 +39,16 @@ scp ./.env skye@100.108.98.44:/home/skye/programs
 :: Sending Token to Server
 scp ./ESI-Interface/token.json skye@100.108.98.44:/home/skye/programs/ESI-Interface
 
+:: Sending Docker Commands & Files
+scp ./docker-compose.yml skye@100.108.98.44:/home/skye/programs
+
+ssh skye@100.108.98.44 "cd /home/skye/programs && docker login && docker-compose up -d"
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo Remote deployment failed!
+    exit /b 1
+)
+
 echo ===========================
 echo Deployment complete!
-docker compose ps
 pause

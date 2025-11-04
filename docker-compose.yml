@@ -9,7 +9,7 @@ services:
     env_file: 
       - .env
     volumes:
-      - market_data:/app/market_data
+      - /home/skye/programs/Shared-Content:/Shared-Content
 
   The-Market-Hand:
     build:
@@ -21,7 +21,7 @@ services:
     env_file: 
       - .env
     volumes:
-      - market_data:/app/market_data
+      - /home/skye/programs/Shared-Content:/Shared-Content
 
   Anomaly-Evaluator:
     build:
@@ -33,7 +33,4 @@ services:
     env_file: 
       - .env
     volumes:
-      - market_data:/app/market_data
-
-volumes:
-  market_data:
+      - /home/skye/programs/Shared-Content:/Shared-Content
