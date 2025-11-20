@@ -10,3 +10,6 @@
 /Legacy Code/LunaSkye-Core.pyproj
 /Legacy Code/LunaSkye-Core.pyproj.user
 /Legacy Code/LunaSkye-Core.sln
+/.vs/PythonSettings.json
+/.vs/slnx.sqlite-journal
+*.pyc

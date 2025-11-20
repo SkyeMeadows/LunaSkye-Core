@@ -13,44 +13,11 @@ from dotenv import load_dotenv
 from collections import defaultdict
 import time
 import sys
+from modules.utils.logging_setup import get_logger
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, ID_QUERY_LIST
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
 
-def get_log_path(logname: str) -> str:
-    logs_base_dir = os.path.join(script_dir, "Logs")
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    now_str = datetime.now().strftime("%Y-%m-%d---%H-%M-%S")
-    logs_date_dir = os.path.join(logs_base_dir, today_str)
-    os.makedirs(logs_date_dir, exist_ok=True)
-    
-    logs_filename = f"{logname}---{now_str}.log"
-    return os.path.join(logs_date_dir, logs_filename)
-
-load_dotenv()
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
-LOG_LEVEL_MAP = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL,
-}
-numeric_log_level = LOG_LEVEL_MAP.get(LOG_LEVEL, logging.DEBUG)
-
-# Setting up Logging
-logging.basicConfig(
-    filename=get_log_path("MarketHand"),
-    filemode='w',
-    level=numeric_log_level,
-    format='%(asctime)s [%(levelname)s] %(message)s', # Format's the lines as <time> <[Level]> <Message>
-    datefmt='%H:%M:%S' 
-)
-
-log = logging.getLogger(__name__)
-
-# Log runtime
-current_datetime = datetime.now()
-log.info(f"Current datetime is: {current_datetime}")
+log = get_logger("MarketHandBot")
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -63,30 +30,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 cooldowns = defaultdict(float)
 COOLDOWN_SECONDS = 5
 
-log.debug("Discord bot Started")
-
-### PATHS
-venv_python = sys.executable
-MAIN_DIR = os.path.dirname(script_dir)
-
-token_path = os.path.join(script_dir, "token.json")
-item_ids_path = os.path.join(script_dir, "Item_IDs.csv")
-graphs_folder = os.path.join(script_dir, "Graphs")
-requestor_path = os.path.join(script_dir, "GraphRequestor.py")
-requestor_daily_path = os.path.join(script_dir, "GraphRequestorDaily.py")
-summary_path = os.path.join(script_dir, "MarketSummaryGen.py")
-
-jita_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "jita_sell_5_avg.csv")
-BRAVE_HOME_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "BRAVE_HOME_sell_5_avg.csv")
-GSF_HOME_path = os.path.join(MAIN_DIR, "ESI-Interface", "Data", "GSF_HOME_sell_5_avg.csv")
-
-query_list_path = os.path.join(MAIN_DIR, "Shared-Content", "query_list.json")
-item_id_path = os.path.join(MAIN_DIR, "Shared-Content", "Item_IDs.csv")
-
-log.debug("Paths Set")
+log.info("Discord bot Started")
 
 ### Items Available
-def load_query_list(path=query_list_path):
+def load_query_list(path=ID_QUERY_LIST):
     with open(path, "r") as file:
         log.debug("Query List Loading")
         return set (json.load(file))
@@ -94,7 +41,7 @@ def load_query_list(path=query_list_path):
 available_item_ids = load_query_list()
 
 log.debug("Loading Item IDs")
-item_df = pd.read_csv(item_id_path).drop_duplicates(subset="typeID")
+item_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
@@ -133,6 +80,7 @@ async def on_ready():
     except Exception as e:
         log.error(f"Error syncing commands: {e}")
 
+'''
 @bot.tree.command(name="print_item_list", description="See the list of supported items for graphing.")
 async def print_item_list(interaction: discord.Interaction):
     user_id = interaction.user.id
@@ -149,6 +97,7 @@ async def print_item_list(interaction: discord.Interaction):
         cooldowns[user_id] = now + COOLDOWN_SECONDS
     
     await interaction.response.send_message(available_item_names)
+'''
 
 @bot.tree.command(name="query_item_list", description="[CASE SENSITIVE] Look for a specific item in the supported item list")
 async def query_item_list(interaction: discord.Interaction, user_item: str):
@@ -175,7 +124,7 @@ async def query_item_list(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message(f"*{user_item}* **IS** Supported")
         return
     
-    df = pd.read_csv("Item_IDs.csv").drop_duplicates(subset="typeID")
+    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
     if not (df['typeName'] == user_item).any():
         await interaction.response.send_message(f"*{user_item}* is **INVALID**")
         return
@@ -205,7 +154,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message("Input too long!", ephemeral=True)
         return
     
-    df = pd.read_csv(item_id_path).drop_duplicates(subset="typeID")
+    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
     for itemID in df:
         row = item_df[item_df['typeID'] == itemID]
 
@@ -296,28 +245,7 @@ async def get_graph(
                 ephemeral=True
             )
             return
-        '''
-        if daily == True:
-            command = [
-                venv_python,
-                requestor_daily_path,
-                "--item_id", str(item_id),
-                "--days", str(days_history),
-                "--daily"
-            ]
-            #log.debug(f"[DEBUG] Running subprocess: {' '.join(command)}")
 
-            result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
-            log.debug(result.stdout)
-            log.debug(result.stderr)
-
-            if result.returncode != 0:
-                await interaction.followup.send(
-                    f" Graph could not be generated for **{item_name}**.",
-                    ephemeral=True
-                )
-                return
-        '''
         days_str = f"{days_history:.1f}"
         filename = f"{safe_item_name}_price_graph.png"
         file_path = os.path.join("Graphs", filename)
@@ -344,6 +272,8 @@ async def get_graph(
     except asyncio.TimeoutError:
         await interaction.followup.send("Graph generation took too long (60s timeout).", ephemeral=True)
 
+
+'''
 @bot.tree.command(name="item_summary", description="Get historial trends for the specified item")
 async def item_summary(
     interaction: discord.Interaction,
@@ -450,5 +380,7 @@ async def item_summary(
         await asyncio.wait_for(inner(), timeout=60)
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (60s timeout).", ephemeral=True)
+'''
+
 
 bot.run(TOKEN)
