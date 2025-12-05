@@ -1,4 +1,5 @@
 from pathlib import Path
+from tkinter import E
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -35,9 +36,16 @@ GRAPH_GENERATOR = MARKET_DIR / "graph_generator.py"
 # Files (Data)
 ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
 ID_QUERY_LIST = DATA_DIR / "query_list.json"
+MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
+MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
+
+# Files (ESI)
+TOKEN_FILE = ESI_DIR / "token.json"
+AT_MANAGER_FILE = ESI_DIR / "at_manager.py"
+RUNTIME_CACHE_PATH = ESI_DIR / "runtime_cache.txt"
 
 
 
 # Ensure everything exists
-for d in [DATA_DIR, TEMP_DIR, LOGS_DIR, MODULES_DIR]:
+for d in [DATA_DIR, TEMP_DIR, LOGS_DIR]:
     d.mkdir(parents=True, exist_ok=True)

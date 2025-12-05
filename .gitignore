@@ -13,3 +13,5 @@
 /.vs/PythonSettings.json
 /.vs/slnx.sqlite-journal
 *.pyc
+/modules/esi/token.json
+*.db

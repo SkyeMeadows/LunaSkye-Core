@@ -99,7 +99,6 @@ else:
     log.debug("OAUTHLIB_INSECURE_TRANSPORT Disabled")
 
 # ESI paths
-AUTH_BASE = "https://login.eveonline.com/v2/oauth/authorize"
 TOKEN_URL = "https://login.eveonline.com/v2/oauth/token"
 log.debug("ESI Query Path Bases Loaded")
 

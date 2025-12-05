@@ -14,7 +14,7 @@ from collections import defaultdict
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, ID_QUERY_LIST
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, ID_QUERY_LIST, GRAPH_GENERATOR
 
 
 log = get_logger("MarketHandBot")
@@ -79,25 +79,6 @@ async def on_ready():
         log.info(f"Synced {len(synced)} commands")
     except Exception as e:
         log.error(f"Error syncing commands: {e}")
-
-'''
-@bot.tree.command(name="print_item_list", description="See the list of supported items for graphing.")
-async def print_item_list(interaction: discord.Interaction):
-    user_id = interaction.user.id
-    now = time.time()
-
-    if now < cooldowns[user_id]:
-        retry_after = cooldowns[user_id] - now
-        await interaction.response.send_message(
-            f"You're on cooldown! Try again in `{retry_after:.1f}` seconds.",
-            ephemeral=True
-        )
-        return
-    else:
-        cooldowns[user_id] = now + COOLDOWN_SECONDS
-    
-    await interaction.response.send_message(available_item_names)
-'''
 
 @bot.tree.command(name="query_item_list", description="[CASE SENSITIVE] Look for a specific item in the supported item list")
 async def query_item_list(interaction: discord.Interaction, user_item: str):
@@ -166,7 +147,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
     
 @bot.tree.command(name="get_graph", description="Sends a price graph for the selected item and time range.")
 @app_commands.describe(
-    item_name="The name of the item you are looking for",
+    item_name="The exact name of the item you are looking for",
     days_history="How many days of data you want?"
     )
 async def get_graph(
@@ -206,38 +187,17 @@ async def get_graph(
 
         item_id = name_to_id[item_key]
         safe_item_name = user_input_name.strip().replace(" ", "_").replace("/", "_")
-
-        '''
-        df["timestamp"] = pd.to_datetime(df["timestamp"], format="%Y-%m-%d_%H-%M", errors="coerce")
-        oldest_date = df["timestamp"].min()
-        if pd.isna(oldest_date):
-            log.warning("No valid timestamps in the column. Resorting to 0 max_days")
-            log.debug(f"Dataframe is: {df}")
-            max_days = 0  # or some fallback
-        else:
-            now = pd.Timestamp.utcnow().tz_localize(None)
-            oldest_date = oldest_date.tz_localize(None)
-            max_days = (now - oldest_date).days
         
-        if days_history > max_days:
-            await interaction.followup.send(
-                f" Only {max_days} days of data available for **{item_name}**.\n"
-                f"Showing what’s available.",
-                ephemeral=True
-            )
-        '''
-        #if daily == False:
         command = [
-            venv_python,
-            requestor_path,
+            GRAPH_GENERATOR,
             "--item_id", str(item_id),
             "--days", str(days_history)
         ]
-        #log.debug(f"[DEBUG] Running subprocess: {' '.join(command)}")
+        log.debug(f"Running subprocess: {' '.join(command)}")
 
         result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
         log.debug(result.stdout)
-        log.debug(result.stderr)
+        log.error(result.stderr)
 
         if result.returncode != 0:
             await interaction.followup.send(
@@ -248,7 +208,7 @@ async def get_graph(
 
         days_str = f"{days_history:.1f}"
         filename = f"{safe_item_name}_price_graph.png"
-        file_path = os.path.join("Graphs", filename)
+        file_path = GRAPHS_TEMP_DIR / filename
 
         if not os.path.isfile(file_path):
             await interaction.followup.send(
@@ -256,8 +216,6 @@ async def get_graph(
                 ephemeral=True
             )
             return
-
-        max_days = 0
 
         await interaction.followup.send(
             content=(
@@ -268,9 +226,9 @@ async def get_graph(
         )
 
     try:
-        await asyncio.wait_for(inner(), timeout=60)
+        await asyncio.wait_for(inner(), timeout=15)
     except asyncio.TimeoutError:
-        await interaction.followup.send("Graph generation took too long (60s timeout).", ephemeral=True)
+        await interaction.followup.send("Graph generation took too long (15s timeout).", ephemeral=True)
 
 
 '''

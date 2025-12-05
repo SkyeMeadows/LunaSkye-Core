@@ -51,6 +51,15 @@ def get_logger(name: str):
     LOG_DIR_PROGRAM = LOG_DIR_TODAY / name
     LOG_DIR_PROGRAM.mkdir(parents=True, exist_ok=True)
 
+    # Debug-level log
+    debug_handler = RotatingFileHandler(
+        LOG_DIR_PROGRAM / "debug.log",
+        maxBytes=25_000_000,
+        backupCount=5
+    )
+    debug_handler.setLevel(logging.DEBUG)
+    debug_handler.setFormatter(FORMATTER)
+
     # App-level log
     app_handler = RotatingFileHandler(
         LOG_DIR_PROGRAM / "app.log",
@@ -74,6 +83,7 @@ def get_logger(name: str):
     console_handler.setFormatter(FORMATTER)
     console_handler.setLevel(NUMERIC_LOG_LEVEL)
 
+    logger.addHandler(debug_handler)
     logger.addHandler(app_handler)
     logger.addHandler(error_handler)
     logger.addHandler(console_handler)
