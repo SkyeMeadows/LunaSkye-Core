@@ -1,4 +1,4 @@
-from modules.utils.paths import TOKEN_FILE, ITEM_IDS_FILE, ID_QUERY_LIST, MARKET_DB_FILE_JITA, RUNTIME_CACHE_PATH, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF
+from modules.utils.paths import TOKEN_FILE, RUNTIME_CACHE_PATH
 from modules.utils.logging_setup import get_logger
 from dotenv import load_dotenv
 import json
@@ -7,9 +7,6 @@ from datetime import datetime, timedelta, UTC, timezone
 import aiofiles, aiohttp
 import os
 from requests_oauthlib import OAuth2Session
-import requests
-import asyncio
-import aiosqlite
 
 log = get_logger("ESI-SessionController")
 
@@ -47,12 +44,6 @@ async def load_cache_time(path=RUNTIME_CACHE_PATH):
         return last_dt, timedelta(seconds=float(data["nextFetch"]))
     except:
         return datetime(1970, 1, 1, tzinfo=UTC), timedelta(seconds=0)
-        
-
-async def load_query_list(path=ID_QUERY_LIST):
-    with open(path, "r") as file:
-        log.debug("Loading Item ID Query list")
-        return set (json.load(file))
 
 async def load_esi_token(path=TOKEN_FILE):
     with open(path, "r") as file:
@@ -63,8 +54,7 @@ async def load_esi_token(path=TOKEN_FILE):
 
 async def save_token(new_token):
     async with aiofiles.open(TOKEN_FILE, "w") as f:
-        content = await f.read()
-        await json.dump(content, f) 
+        await json.dump(new_token, f) 
     log.debug("Token Saved")
 
 async def get_esi_status():

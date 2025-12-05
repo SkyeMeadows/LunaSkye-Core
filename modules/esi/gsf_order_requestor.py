@@ -1,4 +1,4 @@
-from modules.utils.paths import MARKET_DB_FILE_JITA
+from modules.utils.paths import MARKET_DB_FILE_GSF
 from modules.utils.logging_setup import get_logger
 from dotenv import load_dotenv
 import json
@@ -11,7 +11,8 @@ from modules.esi.session_control import save_cache_time, load_cache_time, load_e
 from modules.utils.init_db import init_db
 from modules.esi.data_control import save_orders
 
-log = get_logger("JitaRequestor")
+log = get_logger("GSFRequestor")
+
 
 load_dotenv()
 STATUS_CACHE_DURATION = os.getenv("ESI_STATUS_CACHE_DURATION")
@@ -22,9 +23,9 @@ last_esi_status_check_time = 0
 cached_status = None
 OVERRIDE_MAX_ESI_PAGES = 0
 
-jita_region_id = 10000002 # The Forge
+gsf_structure_id = 1049588174021 # C-J Keepstar
 
-async def fetch_jita_orders(token):
+async def fetch_gsf_orders(token):
 
     pages_completed = 0
     on_page = 1
@@ -32,7 +33,7 @@ async def fetch_jita_orders(token):
     ETAG = None
     time_format = "%a, %d %b %Y %H:%M:%S GMT"
     raw_entries = []
-    
+
     last_fetch_time, nextFetch = await load_cache_time()
     age = datetime.now(UTC) - last_fetch_time
 
@@ -49,7 +50,9 @@ async def fetch_jita_orders(token):
             "User-Agent": "LunaSkye Core (admin contact: skyemeadows20@gmail.com)",
             "If-None-Match": ETAG
         }
-        url = f"https://esi.evetech.net/latest/markets/10000002/orders/?order_type=all&page={on_page}"
+
+        url = f"https://esi.evetech.net/markets/structures/{gsf_structure_id}?page={on_page}"
+
         page_data = []
  
         try:
@@ -114,34 +117,31 @@ async def fetch_jita_orders(token):
         pages_completed += 1
         on_page += 1
 
-
-
     if isinstance(raw_entries, bytes):
         raw_entries = json.loads(raw_entries.decode('utf-8'))
 
-    jita_orders = []
+    gsf_orders = []
     for order in raw_entries:
-        if order.get("location_id") == 60003760:
-            jita_orders.append({
-                "type_id": order.get("type_id"),
-                "volume_remain": order.get("volume_remain"),
-                "price": order.get("price"),
-                "is_buy_order": order.get("is_buy_order"),
-            })
-
+        gsf_orders.append({
+            "type_id": order.get("type_id"),
+            "volume_remain": order.get("volume_remain"),
+            "price": order.get("price"),
+            "is_buy_order": order.get("is_buy_order"),
+        })
 
     await save_cache_time(last_fetch_time, nextFetch)
 
-    return jita_orders, last_fetch_time
+    return gsf_orders, last_fetch_time
+
 
 async def main():
-    log.info("Starting Jita Requestor")
+    log.info("Starting GSF Requestor")
 
-    await init_db(MARKET_DB_FILE_JITA)
+    await init_db(MARKET_DB_FILE_GSF)
 
     #esi_session = await get_authenticated_session()
     token = await load_esi_token()
-    jita_orders, last_fetch_time = await fetch_jita_orders(token)
-    await save_orders(MARKET_DB_FILE_JITA, jita_orders, last_fetch_time)
+    gsf_orders, last_fetch_time = await fetch_gsf_orders(token)
+    await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
 
 asyncio.run(main())
