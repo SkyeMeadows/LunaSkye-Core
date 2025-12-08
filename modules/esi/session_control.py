@@ -20,9 +20,11 @@ cached_status = None
 OVERRIDE_MAX_ESI_PAGES = 0
 
 async def save_cache_time(last_fetch_time, nextFetch, path=RUNTIME_CACHE_PATH):
+    unix_timestamp = int(last_fetch_time.timestamp())
+    unix_nextFetch = int(nextFetch)
     state = {
-        "last_fetch_time": last_fetch_time.isoformat(),
-        "nextFetch": nextFetch.total_seconds()
+        "last_fetch_time": unix_timestamp,
+        "nextFetch": unix_nextFetch
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     async with aiofiles.open(path, "w", encoding="utf-8") as f:
@@ -31,19 +33,15 @@ async def save_cache_time(last_fetch_time, nextFetch, path=RUNTIME_CACHE_PATH):
 
 async def load_cache_time(path=RUNTIME_CACHE_PATH):
     if not path.exists():
-        return datetime(1970, 1, 1, tzinfo=UTC), timedelta(seconds=0)
+        return 0, 0
 
     try:
         async with aiofiles.open(path, "r", encoding="utf-8") as f:
             data = json.loads(await f.read())
 
-        last_dt = datetime.fromisoformat(data["last_fetch_time"])
-        if last_dt.tzinfo is None:
-            last_dt = last_dt.replace(tzinfo=UTC)
-
-        return last_dt, timedelta(seconds=float(data["nextFetch"]))
+        return data["last_fetch_time"], data["nextFetch"]
     except:
-        return datetime(1970, 1, 1, tzinfo=UTC), timedelta(seconds=0)
+        return 0, 0
 
 async def load_esi_token(path=TOKEN_FILE):
     with open(path, "r") as file:

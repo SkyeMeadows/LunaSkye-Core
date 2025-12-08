@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import json
 import time as t
 from datetime import datetime, timedelta, UTC
+from email.utils import parsedate_to_datetime
 import os
 import requests
 import asyncio
@@ -12,7 +13,6 @@ from modules.utils.init_db import init_db
 from modules.esi.data_control import save_orders
 
 log = get_logger("GSFRequestor")
-
 
 load_dotenv()
 STATUS_CACHE_DURATION = os.getenv("ESI_STATUS_CACHE_DURATION")
@@ -35,10 +35,10 @@ async def fetch_gsf_orders(token):
     raw_entries = []
 
     last_fetch_time, nextFetch = await load_cache_time()
-    age = datetime.now(UTC) - last_fetch_time
+    now = int(datetime.now(UTC).timestamp())
 
-    if age < nextFetch:
-        sleep_for = (nextFetch - age).total_seconds() + 3
+    if now < nextFetch:
+        sleep_for = (nextFetch - now) + 3
         log.debug(f"Respecting ESI cache: sleeping {sleep_for:.1f}s before fetching page {on_page}")
         await asyncio.sleep(sleep_for)
 
@@ -52,7 +52,6 @@ async def fetch_gsf_orders(token):
         }
 
         url = f"https://esi.evetech.net/markets/structures/{gsf_structure_id}?page={on_page}"
-
         page_data = []
  
         try:
@@ -72,8 +71,15 @@ async def fetch_gsf_orders(token):
             server_time = response.headers.get("Date")
             log.debug(f"Server time header: {server_time}")
 
+            expires_dt = parsedate_to_datetime(response.headers.get("expires", ""))
+            server_dt  = parsedate_to_datetime(response.headers.get("Date", ""))
+
             last_fetch_time = datetime.now(UTC)
-            nextFetch = datetime.strptime(expires_header, time_format) - datetime.strptime(server_time, time_format) + timedelta(seconds=3)
+            nextAllowedFetch = expires_dt + timedelta(seconds=3)
+
+            if nextAllowedFetch.tzinfo is None:
+                nextAllowedFetch = nextAllowedFetch.replace(tzinfo=UTC)
+            nextFetch = nextAllowedFetch.timestamp()
 
             if response.headers.get("ETag") != ETAG:
                 ETAG = response.headers.get("ETag")
@@ -132,7 +138,6 @@ async def fetch_gsf_orders(token):
     await save_cache_time(last_fetch_time, nextFetch)
 
     return gsf_orders, last_fetch_time
-
 
 async def main():
     log.info("Starting GSF Requestor")
