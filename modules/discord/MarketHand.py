@@ -1,11 +1,8 @@
 import asyncio
-import json
-from datetime import datetime
-import logging
 import subprocess
 import discord
 import os
-from discord import app_commands
+from discord import Optional, app_commands
 from discord.ext import commands
 from typing import Literal  # For fixed choices
 import pandas as pd
@@ -14,7 +11,7 @@ from collections import defaultdict
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, ID_QUERY_LIST, GRAPH_GENERATOR
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT
 
 
 log = get_logger("MarketHandBot")
@@ -33,12 +30,6 @@ COOLDOWN_SECONDS = 5
 log.info("Discord bot Started")
 
 ### Items Available
-def load_query_list(path=ID_QUERY_LIST):
-    with open(path, "r") as file:
-        log.debug("Query List Loading")
-        return set (json.load(file))
-
-available_item_ids = load_query_list()
 
 log.debug("Loading Item IDs")
 item_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
@@ -46,15 +37,6 @@ name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
 }
-
-available_item_names = []
-
-for itemID in available_item_ids:
-    row = item_df[item_df['typeID'] == itemID]
-
-    if not row.empty:
-        item_name = row.iloc[0]['typeName']
-        available_item_names.append(item_name)
 
 @bot.tree.command(name="shutdown", description="Shuts down the bot (admin only)")
 async def shutdown(interaction: discord.Interaction):
@@ -79,40 +61,6 @@ async def on_ready():
         log.info(f"Synced {len(synced)} commands")
     except Exception as e:
         log.error(f"Error syncing commands: {e}")
-
-@bot.tree.command(name="query_item_list", description="[CASE SENSITIVE] Look for a specific item in the supported item list")
-async def query_item_list(interaction: discord.Interaction, user_item: str):
-    user_id = interaction.user.id
-    now = time.time()
-
-    if now < cooldowns[user_id]:
-        retry_after = cooldowns[user_id] - now
-        await interaction.response.send_message(
-            f"You're on cooldown! Try again in `{retry_after:.1f}` seconds.",
-            ephemeral=True
-        )
-        return
-    else:
-        cooldowns[user_id] = now + COOLDOWN_SECONDS
-
-    user_item = user_item.strip()
-
-    if len(user_item) > 50:
-        await interaction.response.send_message("Input too long!", ephemeral=True)
-        return
-    
-    if user_item in available_item_names:
-        await interaction.response.send_message(f"*{user_item}* **IS** Supported")
-        return
-    
-    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
-    if not (df['typeName'] == user_item).any():
-        await interaction.response.send_message(f"*{user_item}* is **INVALID**")
-        return
-    
-    else:
-        await interaction.response.send_message(f"*{user_item}* is **NOT** Supported")
-        return
     
 @bot.tree.command(name="get_item_id")
 async def get_item_id(interaction: discord.Interaction, user_item: str):
@@ -153,7 +101,8 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
 async def get_graph(
     interaction: discord.Interaction,
     item_name: str,
-    days_history: float
+    market: Literal["Jita", "C-J6MT (GSF)"],
+    days_history: Optional[float]
 ):
     user_id = interaction.user.id
     now = time.time()
@@ -189,15 +138,23 @@ async def get_graph(
         safe_item_name = user_input_name.strip().replace(" ", "_").replace("/", "_")
         
         command = [
-            GRAPH_GENERATOR,
-            "--item_id", str(item_id),
-            "--days", str(days_history)
+            sys.executable,
+            str(GRAPH_GENERATOR),
+            "--type_id", str(item_id),
+            "--market", str(market)
         ]
+
+        if days_history:
+            command.append("--days", str(days_history))
+
         log.debug(f"Running subprocess: {' '.join(command)}")
 
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
+        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
         log.debug(result.stdout)
         log.error(result.stderr)
+
+        if result.returncode == 0:
+            file_path = result.stdout.strip()
 
         if result.returncode != 0:
             await interaction.followup.send(
@@ -206,13 +163,10 @@ async def get_graph(
             )
             return
 
-        days_str = f"{days_history:.1f}"
-        filename = f"{safe_item_name}_price_graph.png"
-        file_path = GRAPHS_TEMP_DIR / filename
 
         if not os.path.isfile(file_path):
             await interaction.followup.send(
-                f" Expected graph file not found: `{filename}`",
+                f" Expected graph file not found: `{file_path}`",
                 ephemeral=True
             )
             return

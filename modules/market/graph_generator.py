@@ -1,17 +1,21 @@
 import argparse
 import asyncio
 import os
-import time
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from datetime import datetime, timedelta, UTC, timezone
-from matplotlib.dates import DayLocator, DateFormatter, HourLocator, AutoDateLocator
-from matplotlib.ticker import MaxNLocator
-import logging
 from dotenv import load_dotenv
 import aiosqlite
 from collections import defaultdict
+import sys
+from pathlib import Path
+
+if __name__ == "__main__":
+    # Dynamically add project root to sys.path
+    project_root = Path(__file__).resolve().parent.parent.parent  # graph_generator.py → market → modules → root
+    sys.path.insert(0, str(project_root))
+
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA ,MARKET_DB_FILE_GSF
 
@@ -24,12 +28,15 @@ log.debug("Parsing Arguments")
 parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
 parser.add_argument("--type_id", type=int, required=True)
 parser.add_argument("--days", type=float, default=1, help="Number of days of data to include")
-parser.add_argument("--market", type=str, default="jita", choices=["jita", "gsf"], help="Market to pull data from")
+parser.add_argument("--market", type=str, default="jita", help="Market to pull data from")
 args = parser.parse_args()
+
 
 
 # === Load item names and IDs ===
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+
+
 
 async def connect_to_db(type_id: int, days: int, market: str):
     if market == "jita":
@@ -107,6 +114,8 @@ async def generate_graph(type_id, days, market, type_name):
     plt.savefig(filepath, dpi=200, bbox_inches='tight')
     log.info(f"Saved figure to {filepath}")
 
+    return filepath
+
 
 
         
@@ -115,10 +124,13 @@ async def generate_graph(type_id, days, market, type_name):
 async def main():
     type_id = args.type_id
     days = args.days if args.days > 0 else 1
-    market = args.market
+    market = (args.market).lower()
     type_name = await match_item_name(type_id)
 
-    await generate_graph(type_id, days, market, type_name)
+    filepath = await generate_graph(type_id, days, market, type_name)
+
+    print(str(filepath))
+    return 0
 
 if __name__ == "__main__":
     asyncio.run(main())
