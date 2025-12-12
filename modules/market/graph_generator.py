@@ -5,7 +5,7 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, UTC, timezone
 from matplotlib.dates import DayLocator, DateFormatter, HourLocator, AutoDateLocator
 from matplotlib.ticker import MaxNLocator
 import logging
@@ -71,10 +71,41 @@ async def match_item_name(type_id: int):
         log.error(f"Item ID {type_id} not found in type_ids.csv")
         return f"Unknown Item {type_id}"
 
-async def generate_graph(type_id, days, market):
+async def generate_graph(type_id, days, market, type_name):
+    sell_by_time = defaultdict(lambda: float('inf'))  # lowest sell wins
+
+
     rows = await connect_to_db(type_id, days, market)
 
-    print(rows)
+    for row in rows:
+        iso_ts = row["timestamp"]
+        ts = pd.to_datetime(iso_ts)
+        unix_timestamp = int(ts.timestamp())
+        sell_by_time[unix_timestamp] = min(sell_by_time[unix_timestamp], row["price"])
+
+    sell_times   = sorted(sell_by_time.keys())
+    sell_prices  = [sell_by_time[t] for t in sell_times]
+
+    sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in sell_times]
+
+    fig, (ax1) = plt.subplots(1, 1, figsize=(16,10), sharex=True, constrained_layout=True)
+    ax1.plot(sell_dt, sell_prices, color="green", label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
+
+    #Doing Averages
+    if len(sell_prices) > 24:
+        sell_ma = pd.Series(sell_prices).rolling(window=24, min_periods=1).mean()
+        ax1.plot(sell_times, sell_ma, color="orange", linewidth=1, alpha=0.8, label="24h Sell Average")
+    
+    ax1.set_title(f"{market} chart for {type_name} - Past {days} days")
+    ax1.set_ylabel("Price (ISK)")
+    ax1.legend()
+
+    os.makedirs(GRAPHS_TEMP_DIR, exist_ok=True)
+
+    filepath =f"{GRAPHS_TEMP_DIR}/{market}_market_{type_name}_past_{days}d.png"
+
+    plt.savefig(filepath, dpi=200, bbox_inches='tight')
+    log.info(f"Saved figure to {filepath}")
 
 
 
@@ -87,7 +118,7 @@ async def main():
     market = args.market
     type_name = await match_item_name(type_id)
 
-    await generate_graph(type_id, days, market)
+    await generate_graph(type_id, days, market, type_name)
 
 if __name__ == "__main__":
     asyncio.run(main())

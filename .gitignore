@@ -7,11 +7,8 @@
 /.vs/slnx.sqlite
 /.vs/VSWorkspaceState.json
 /ESI-Interface/token.json
-/Legacy Code/LunaSkye-Core.pyproj
-/Legacy Code/LunaSkye-Core.pyproj.user
-/Legacy Code/LunaSkye-Core.sln
-/.vs/PythonSettings.json
-/.vs/slnx.sqlite-journal
-*.pyc
 /modules/esi/token.json
 *.db
+*.pyc
+/temp*
+*/runtime_cache.txt
