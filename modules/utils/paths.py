@@ -38,6 +38,8 @@ ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
 ID_QUERY_LIST = DATA_DIR / "query_list.json"
 MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
 MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
+ORE_LIST = DATA_DIR / "ore_list.json"
+REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
 
 # Files (ESI)
 TOKEN_FILE = ESI_DIR / "token.json"

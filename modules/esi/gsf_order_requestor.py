@@ -31,7 +31,6 @@ async def fetch_gsf_orders(token):
     on_page = 1
     ESI_MAX_PAGES = 1
     ETAG = None
-    time_format = "%a, %d %b %Y %H:%M:%S GMT"
     raw_entries = []
 
     last_fetch_time, nextFetch = await load_cache_time()
@@ -143,8 +142,6 @@ async def main():
     log.info("Starting GSF Requestor")
 
     await init_db(MARKET_DB_FILE_GSF)
-
-    #esi_session = await get_authenticated_session()
     token = await load_esi_token()
     gsf_orders, last_fetch_time = await fetch_gsf_orders(token)
     await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)

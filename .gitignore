@@ -1,4 +1,4 @@
-*.log
+*.log*
 /.vs/LunaSkye-Core/CopilotIndices
 /.vs/LunaSkye-Core/FileContentIndex
 /.vs/LunaSkye-Core/v17

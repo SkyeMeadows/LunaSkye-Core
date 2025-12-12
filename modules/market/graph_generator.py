@@ -10,6 +10,7 @@ import aiosqlite
 from collections import defaultdict
 import sys
 from pathlib import Path
+import json
 
 if __name__ == "__main__":
     # Dynamically add project root to sys.path
@@ -17,7 +18,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA ,MARKET_DB_FILE_GSF
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ORE_LIST
 
 log = get_logger("GraphGenerator")
 
@@ -35,8 +36,6 @@ args = parser.parse_args()
 
 # === Load item names and IDs ===
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
-
-
 
 async def connect_to_db(type_id: int, days: int, market: str):
     if market == "jita":

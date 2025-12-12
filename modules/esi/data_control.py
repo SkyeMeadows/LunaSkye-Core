@@ -1,8 +1,18 @@
 import aiosqlite
+from modules.utils.ore_controller import load_ore_list, calculate_ore_value
+from modules.utils.logging_setup import get_logger
+
+log = get_logger("DataControl")
 
 async def save_orders(database_path, orders, fetched_time):
+    ore_list = await load_ore_list()
     rows_to_insert = []
     for order in orders:
+        if order["type_id"] in ore_list:
+            log.debug(f"Detected ore, type_id is {order["type_id"]}")
+            order["price"] = await calculate_ore_value(order["type_id"], orders)
+            log.debug(f"Ore value for {order["type_id"]} as {order["price"]}")
+
         rows_to_insert.append((
             fetched_time,
             order["type_id"],
@@ -17,3 +27,4 @@ async def save_orders(database_path, orders, fetched_time):
             VALUES (?, ?, ?, ?, ?)
         """, rows_to_insert)
         await db.commit()
+        await db.close()
