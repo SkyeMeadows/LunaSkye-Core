@@ -145,7 +145,7 @@ async def get_graph(
         ]
 
         if days_history:
-            command.append("--days", str(days_history))
+            command.append(f"--days {str(days_history)}")
 
         log.debug(f"Running subprocess: {' '.join(command)}")
 
