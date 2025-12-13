@@ -137,10 +137,15 @@ async def get_graph(
         item_id = name_to_id[item_key]
         safe_item_name = user_input_name.strip().replace(" ", "_").replace("/", "_")
         
-        command = [f"{sys.executable} {str(GRAPH_GENERATOR)} --type_id {str(item_id)} --market {str(market)}"]
+        command = [
+            sys.executable,
+            str(GRAPH_GENERATOR),
+            "--type_id", str(item_id),
+            "--market", str(market)
+        ]
 
         if days_history:
-            command.append(f" --days {str(days_history)}")
+            command.append("--days", str(days_history))
 
         log.debug(f"Running subprocess: {' '.join(command)}")
 
