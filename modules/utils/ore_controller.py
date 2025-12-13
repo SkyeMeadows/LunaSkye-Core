@@ -59,6 +59,6 @@ async def calculate_ore_value(type_id, fresh_orders):
         log.debug(f"Returned price of {material_type_id} ({material}) as {material_price}")
         
          # TODO: Add an Ice Id list so that ice is handled with a batch count of 1 instead of 100
-        ore_price += (material_price  * (amount/100) * 0.9062) # 100 units to reprocess, times refining yield
+        ore_price += ((material_price  * (amount/100)) * 0.9062) # 100 units to reprocess, times refining yield
    
     return ore_price

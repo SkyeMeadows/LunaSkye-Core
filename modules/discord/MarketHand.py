@@ -141,7 +141,7 @@ async def get_graph(
             sys.executable,
             str(GRAPH_GENERATOR),
             "--type_id", str(item_id),
-            "--market", str(market)
+            "--market", str(market),
         ]
 
         if days_history:
