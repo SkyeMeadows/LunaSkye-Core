@@ -28,8 +28,8 @@ mpl.set_loglevel("warning")
 log.debug("Parsing Arguments")
 parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
 parser.add_argument("--type_id", type=int, required=True)
-parser.add_argument("--days", type=float, default=1, help="Number of days of data to include")
 parser.add_argument("--market", type=str, default="jita", help="Market to pull data from")
+parser.add_argument("--days", type=float, default=1, help="Number of days of data to include")
 args = parser.parse_args()
 
 
