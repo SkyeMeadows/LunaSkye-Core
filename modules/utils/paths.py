@@ -40,6 +40,7 @@ MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
 MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
 ORE_LIST = DATA_DIR / "ore_list.json"
 REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
+REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
 
 # Files (ESI)
 TOKEN_FILE = ESI_DIR / "token.json"

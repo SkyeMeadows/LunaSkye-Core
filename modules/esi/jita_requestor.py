@@ -10,7 +10,8 @@ import requests
 import asyncio
 from modules.esi.session_control import save_cache_time, load_cache_time, load_esi_token, get_authenticated_session
 from modules.utils.init_db import init_db
-from modules.esi.data_control import save_orders
+from modules.esi.data_control import save_orders, save_ore_orders
+from modules.utils.ore_controller import load_ore_list, calculate_ore_value
 
 log = get_logger("JitaRequestor")
 
@@ -124,9 +125,14 @@ async def fetch_jita_orders(token):
     if isinstance(raw_entries, bytes):
         raw_entries = json.loads(raw_entries.decode('utf-8'))
 
+    ore_list = await load_ore_list()
+
+    raw_entries = [order for order in raw_entries if order["type_id"] in ore_list]
+
     jita_orders = []
     for order in raw_entries:
         if order.get("location_id") == 60003760:
+
             jita_orders.append({
                 "type_id": order.get("type_id"),
                 "volume_remain": order.get("volume_remain"),
@@ -146,5 +152,11 @@ async def main():
     token = await load_esi_token()
     jita_orders, last_fetch_time = await fetch_jita_orders(token)
     await save_orders(MARKET_DB_FILE_JITA, jita_orders, last_fetch_time)
+    
+    ore_list = await load_ore_list()
+
+    for ore_id in ore_list:
+        ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_JITA)
+        await save_ore_orders(MARKET_DB_FILE_JITA, ore_price, last_fetch_time, ore_id)
 
 asyncio.run(main())
