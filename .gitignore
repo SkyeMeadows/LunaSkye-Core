@@ -12,3 +12,4 @@
 *.pyc
 /temp*
 */runtime_cache.txt
+/venv*

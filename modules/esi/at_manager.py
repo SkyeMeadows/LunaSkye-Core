@@ -1,15 +1,9 @@
 import json
 import aiofiles
-from io import StringIO
-import requests
 import os
-from datetime import datetime, timedelta, time
-import logging
-import csv
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth2Session
 import asyncio
-from requests import ReadTimeout
 import sys
 from modules.utils.paths import ESI_DIR, TOKEN_FILE
 from modules.utils.logging_setup import get_logger
@@ -42,16 +36,13 @@ def save_token(token):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
-        # If no current loop (e.g. in a new thread)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
     if loop.is_running():
-        # Inside an existing async loop — schedule as a background task
         task = loop.create_task(async_save_token(token))
         task.add_done_callback(lambda t: log.error(f"Save token task crashed: {t.exception()}") if t.exception() else None)
     else:
-        # No running loop — run the async function now and block until done
         loop.run_until_complete(async_save_token(token))
 
 
