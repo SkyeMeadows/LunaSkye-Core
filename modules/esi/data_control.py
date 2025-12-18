@@ -29,7 +29,7 @@ async def pull_recent_data(type_id, market_db):
         db.row_factory = aiosqlite.Row
 
         query = """
-            SELECT timestamp, type_id, price, is_buy_order
+            SELECT timestamp, type_id, volume_remain, price, is_buy_order
             FROM (
                 SELECT *,
                     ROW_NUMBER() OVER (
@@ -47,6 +47,7 @@ async def pull_recent_data(type_id, market_db):
 
         async with db.execute(query, tuple(params)) as cursor:
             rows = await cursor.fetchall()
+            log.debug(f"Returning recent data for type id {type_id}: {rows}")
             return rows
 
 async def save_ore_orders(database_path, ore_price, fetched_time, type_id):

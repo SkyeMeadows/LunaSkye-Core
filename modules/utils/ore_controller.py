@@ -1,6 +1,8 @@
 import json
+import numpy as np
+from collections import defaultdict
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ORE_LIST, REPROCESS_YIELD, REPROCESS_IDS
+from modules.utils.paths import ORE_LIST, REPROCESS_YIELD, REPROCESS_IDS, ICE_PRODUCT_LIST
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
 from modules.esi.data_control import pull_recent_data
 
@@ -13,6 +15,13 @@ async def load_ore_list(path=ORE_LIST):
         content = file.read()
         ore_list = json.loads(content)
         return ore_list
+
+async def load_ice_product_list(path=ICE_PRODUCT_LIST):
+    with open(path, "r") as file:
+        log.debug(f"Loading Ice Product IDs")
+        content = file.read()
+        ice_product_list = json.loads(content)
+        return ice_product_list
     
 async def load_reprocess_yield(path=REPROCESS_YIELD):
     with open(path, "r") as file:
@@ -43,6 +52,9 @@ async def find_reprocess_yield(item_name):
 
 async def calculate_ore_value(type_id, market):
     ore_price = 0
+    material_price = 0
+    ice_list = await load_ice_product_list()
+    log.debug(f"Returned ice_list as {ice_list}")
 
     log.debug(f"Recieved {type_id} as Ore")
     item_name = await map_id_to_name(type_id)
@@ -57,21 +69,33 @@ async def calculate_ore_value(type_id, market):
         log.debug(f"Pulling orders for ID {type_id}")
         orders = await pull_recent_data(type_id, market)
         mineral_orders.extend(orders)
-        
+
+    mineral_prices = defaultdict(list)
+    for row in mineral_orders:
+        mineral_prices[row["type_id"]].append(row["price"])
+    
+    mineral_price_percentile = {
+        type_id: np.percentile(prices, 5) if prices else 0.0
+        for type_id, prices in mineral_prices.items()
+    }
+    
     for material, amount in reprocess_yield.items():
+        log.debug(f"Got {material}: {amount} for {reprocess_yield.items()}")
         if amount <= 0:
             continue
         material_type_id = await map_name_to_id(material)
         log.debug(f"Got material type id for {material} as {material_type_id}")
-        for order in mineral_orders:
-            if order["type_id"] == material_type_id:
-                material_price = order["price"]
-                break
+
+        material_price = mineral_price_percentile.get(material_type_id)
+            
         log.debug(f"Returned price of {material_type_id} ({material}) as {material_price}")
         
-        # TODO: Add an Ice Id list so that ice is handled with a batch count of 1 instead of 100
         log.debug(f"Ore Price before adding {material} is {ore_price}")
-        ore_price += ((material_price  * (amount/100)) * 0.9062) # 100 units to reprocess, times refining yield
+        if material_type_id in ice_list:
+            log.debug(f"Material ({material}) is an ice product, handling accordingly")
+            ore_price += (material_price * amount * 0.9062)
+        else:
+            ore_price += ((material_price  * (amount/100)) * 0.9062) # 100 units to reprocess, times refining yield
         log.debug(f"Ore Price after adding {material} is {ore_price}")
     
     log.debug(f"Calculated ore price of item {type_id} ({item_name}) to be {ore_price}")

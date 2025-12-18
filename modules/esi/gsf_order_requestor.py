@@ -88,7 +88,7 @@ async def fetch_gsf_orders(token):
                 log.debug(f"ETag for page {on_page} unchanged.")
 
             if response.status_code == 304:
-                log.debug(f"Received 304 for Jita Order on Page {on_page}.")
+                log.debug(f"Received 304 for Order on Page {on_page}.")
 
             elif response.status_code == 401:
                 log.error(f"Recieved 401 response, token is invalid")
@@ -123,11 +123,9 @@ async def fetch_gsf_orders(token):
         pages_completed += 1
         on_page += 1
 
-  
-
     if isinstance(raw_entries, bytes):
         raw_entries = json.loads(raw_entries.decode('utf-8'))
-    
+
     ore_list = await load_ore_list()
 
     raw_entries = [order for order in raw_entries if order["type_id"] in ore_list]
