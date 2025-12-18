@@ -40,7 +40,7 @@ items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 async def connect_to_db(type_id: int, days: int, market: str):
     if market == "jita":
         MARKET_DB = MARKET_DB_FILE_JITA
-    if market == "gsf":
+    if market == "c-j6mt (gsf)":
         MARKET_DB = MARKET_DB_FILE_GSF
     else:
         log.error(f"Market {market} not recognized, defaulting to Jita")
