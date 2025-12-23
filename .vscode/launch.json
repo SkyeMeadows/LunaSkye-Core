@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Jita Graph",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.market.graph_generator",
+            "args": [
+                "--type_id",
+                "34",
+                "--market",
+                "jita"
+            ]
+        },
+        {
+            "name": "C-J Graph",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.market.graph_generator",
+            "args": [
+                "--type_id",
+                "34",
+                "--market",
+                "c-j6mt (gsf)"
+            ]
+        },
+    ]
+}

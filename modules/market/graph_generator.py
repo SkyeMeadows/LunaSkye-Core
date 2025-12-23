@@ -39,10 +39,14 @@ items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 
 async def connect_to_db(type_id: int, days: int, market: str):
     if market == "jita":
+        log.debug(f"Market recognized as Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
+        log.debug(f"Market file located at {MARKET_DB}")
     if market == "c-j6mt (gsf)":
+        log.debug(f"Market recognized as C-J")
         MARKET_DB = MARKET_DB_FILE_GSF
-    else:
+        log.debug(f"Market file located at {MARKET_DB}")
+    elif market != ("jita" or "c-j6mt (gsf)"):
         log.error(f"Market {market} not recognized, defaulting to Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
         log.debug(f"Market file located at {MARKET_DB}")
@@ -123,7 +127,8 @@ async def generate_graph(type_id, days, market, type_name):
 async def main():
     type_id = args.type_id
     days = args.days if args.days > 0 else 1
-    market = (args.market).lower()
+    market = str((args.market).lower())
+    log.debug(f"Market argument identified as: {market}")
     type_name = await match_item_name(type_id)
 
     filepath = await generate_graph(type_id, days, market, type_name)
