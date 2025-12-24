@@ -128,7 +128,7 @@ async def fetch_gsf_orders(token):
 
     ore_list = await load_ore_list()
 
-    raw_entries = [order for order in raw_entries if order["type_id"] in ore_list]
+    #raw_entries = [order for order in raw_entries if order["type_id"] in ore_list]
 
     gsf_orders = []
     for order in raw_entries:        

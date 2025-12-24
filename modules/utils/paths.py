@@ -1,5 +1,4 @@
 from pathlib import Path
-from tkinter import E
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

@@ -25,5 +25,17 @@
                 "c-j6mt (gsf)"
             ]
         },
+        {
+            "name": "Jita Orders",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.esi.jita_requestor"
+        },
+        {
+            "name": "C-J Orders",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.esi.gsf_order_requestor"
+        },
     ]
 }
