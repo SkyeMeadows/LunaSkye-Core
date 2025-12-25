@@ -10,7 +10,7 @@ import aiosqlite
 from collections import defaultdict
 import sys
 from pathlib import Path
-import json
+import matplotlib.dates as mdates
 
 if __name__ == "__main__":
     # Dynamically add project root to sys.path
@@ -98,23 +98,43 @@ async def generate_graph(type_id, days, market, type_name):
 
     sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in sell_times]
 
+    plt.style.use("dark_background")
+
     fig, (ax1) = plt.subplots(1, 1, figsize=(16,10), sharex=True, constrained_layout=True)
-    ax1.plot(sell_dt, sell_prices, color="green", label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
+
+    ax1.plot(sell_dt, sell_prices, color="green", linestyle='--', marker='o', label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
     #Doing Averages
     if len(sell_prices) > 24:
         sell_ma = pd.Series(sell_prices).rolling(window=24, min_periods=1).mean()
-        ax1.plot(sell_times, sell_ma, color="orange", linewidth=1, alpha=0.8, label="24h Sell Average")
+        ax1.plot(sell_times, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
     
     ax1.set_title(f"{market} chart for {type_name} - Past {days} days")
     ax1.set_ylabel("Price (ISK)")
     ax1.legend()
 
+    ax1.grid(True, which='major', alpha=0.5)
+    ax1.grid(True, which='minor', alpha=0.3)
+
+    # === Date formatting ===
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d %H:%M'))
+
+    # Smart tick spacing based on time range
+    if days <= 3:
+        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=4))
+    elif days <= 14:
+        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=12))
+    else:
+        ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, days // 10)))
+
+    plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
+    fig.autofmt_xdate()  # helps with layout
+
     os.makedirs(GRAPHS_TEMP_DIR, exist_ok=True)
 
     filepath =f"{GRAPHS_TEMP_DIR}/{market}_market_{type_name}_past_{days}d.png"
 
-    plt.savefig(filepath, dpi=200, bbox_inches='tight')
+    fig.savefig(filepath, dpi=200, bbox_inches='tight')
     log.info(f"Saved figure to {filepath}")
 
     return filepath
