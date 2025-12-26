@@ -173,9 +173,6 @@ async def get_graph(
             )
             return
         
-        if not days_history:
-            days_history = 1
-
         await interaction.followup.send(
             content=(
                 f"Generated price graph for **{item_name}** over the last {days_history} days:"
