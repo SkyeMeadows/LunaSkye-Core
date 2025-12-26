@@ -120,12 +120,7 @@ async def generate_graph(type_id, days, market, type_name):
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d %H:%M'))
 
     # Smart tick spacing based on time range
-    if days <= 3:
-        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-    elif days <= 14:
-        ax1.xaxis.set_major_locator(mdates.HourLocator(interval=12))
-    else:
-        ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, days // 10)))
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, days // 10)))
 
     plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
     fig.autofmt_xdate()  # helps with layout
