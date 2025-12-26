@@ -96,7 +96,8 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
 @bot.tree.command(name="get_graph", description="Sends a price graph for the selected item and time range.")
 @app_commands.describe(
     item_name="The exact name of the item you are looking for",
-    days_history="How many days of data you want?"
+    market="Which market do you want to query from?",
+    days_history="How far back do you want to look in days? (Supports decimals)"
     )
 async def get_graph(
     interaction: discord.Interaction,
@@ -171,11 +172,13 @@ async def get_graph(
                 ephemeral=True
             )
             return
+        
+        if not days_history:
+            days_history = 1
 
         await interaction.followup.send(
             content=(
-                f"Here's the price graph for **{item_name}** "
-                f"(last {days_history} days out of <insert max days> available):"
+                f"Generated price graph for **{item_name}** over the last {days_history} days:"
             ),
             file=discord.File(file_path)
         )
