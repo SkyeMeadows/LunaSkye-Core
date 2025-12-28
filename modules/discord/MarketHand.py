@@ -221,9 +221,6 @@ async def item_summary(
         
         item_id = name_to_id[item_key]
 
-        all_data = []
-        
-
         command = [
             sys.executable,
             str(MARKET_SUMMARY_GENERATOR),

@@ -107,7 +107,7 @@ async def generate_graph(type_id, days, market, type_name):
     #Doing Averages
     if len(sell_prices) > 24:
         sell_ma = pd.Series(sell_prices).rolling(window=24, min_periods=1).mean()
-        ax1.plot(sell_times, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
+        ax1.plot(sell_dt, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
     
     ax1.set_title(f"{market} chart for {type_name} - Past {days} days")
     ax1.set_ylabel("Price (ISK)")
