@@ -229,7 +229,7 @@ async def item_summary(
             str(MARKET_SUMMARY_GENERATOR),
             "--type_id", str(item_id),
             "--market", str(market),
-            "--days", str(days_history)
+            "--days", float(days_history)
         ]
 
         log.debug(f"Running subprocess: {' '.join(command)}")
