@@ -68,3 +68,28 @@ async def save_ore_orders(database_path, ore_price, fetched_time, type_id):
         """, rows_to_insert)
         await db.commit()
         await db.close()
+
+async def query_db_days(type_id, market_db, days):
+
+    async with aiosqlite.connect(market_db) as db:
+        db.row_factory = aiosqlite.Row
+
+        query = """
+            SELECT 
+                timestamp,
+                price,
+                volume_remain,
+                is_buy_order
+            FROM market_orders
+            WHERE type_id = ?
+                AND is_buy_order = FALSE
+                AND timestamp >= datetime('now', '-' || ? || ' days')
+            ORDER BY timestamp DESC, price DESC
+        """
+    
+        params = [type_id, round(days*24)]
+
+        async with db.execute(query, tuple(params)) as cursor:
+            rows = await cursor.fetchall()
+            log.debug(f"Returning recent data for type id {type_id}")
+            return rows

@@ -37,5 +37,34 @@
             "request": "launch",
             "module": "modules.esi.gsf_order_requestor"
         },
+        {
+            "name": "Jita Item Summary",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.market.market_summary_generator",
+            "args": [
+                "--type_id",
+                "11399",
+                "--market",
+                "jita",
+                "--days",
+                "3"
+            ]
+        },
+        {
+            "name": "C-J Item Summary",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.market.market_summary_generator",
+            "args": [
+                "--type_id",
+                "11399",
+                "--market",
+                "c-j6mt (gsf)",
+                "--days",
+                "3"
+            ]
+        },
+        
     ]
 }

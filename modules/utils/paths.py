@@ -31,6 +31,7 @@ GRAPHS_TEMP_DIR = TEMP_DIR / "graphs"
 
 # Subdirectories (market)
 GRAPH_GENERATOR = MARKET_DIR / "graph_generator.py"
+MARKET_SUMMARY_GENERATOR = MARKET_DIR / "market_summary_generator.py"
 
 # Files (Data)
 ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
