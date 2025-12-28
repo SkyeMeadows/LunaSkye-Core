@@ -125,10 +125,6 @@ async def fetch_jita_orders(token):
     if isinstance(raw_entries, bytes):
         raw_entries = json.loads(raw_entries.decode('utf-8'))
 
-    ore_list = await load_ore_list()
-
-    #raw_entries = [order for order in raw_entries if order["type_id"] in ore_list]
-
     jita_orders = []
     for order in raw_entries:
         if order.get("location_id") == 60003760:
@@ -158,5 +154,7 @@ async def main():
     for ore_id in ore_list:
         ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_JITA)
         await save_ore_orders(MARKET_DB_FILE_JITA, ore_price, last_fetch_time, ore_id)
+        
+    exit(0)
 
 asyncio.run(main())
