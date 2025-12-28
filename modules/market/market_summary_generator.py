@@ -23,7 +23,7 @@ log = get_logger("MarketSummaryGenerator")
 parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
 parser.add_argument("--type_id", type=int, required=True)
 parser.add_argument("--market", type=str, default="jita", required=True)
-parser.add_argument("--days", type=float, default=1, required=True)
+parser.add_argument("--days", type=float, default=1, required=False)
 args = parser.parse_args()
 
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
