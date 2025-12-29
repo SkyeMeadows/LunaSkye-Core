@@ -240,7 +240,7 @@ async def item_summary(
         if days_history:
             log.debug(f"Appending days history argument with days: {days_history}")
             command.append("--days")
-            command.append(float(days_history))
+            command.append(str(days_history))
 
         log.debug(f"Running subprocess: {' '.join(command)}")
 
