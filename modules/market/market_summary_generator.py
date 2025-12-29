@@ -72,7 +72,7 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     sorted_prices = sorted(all_prices)
     n = len(sorted_prices)
     
-    high_price = sorted_prices[int(n * 0.90)]
+    high_price = sorted_prices[int(n * 0.05)]
     low_index = max(0, int(n * 0.01))
     low_price = sorted_prices[low_index]
     
