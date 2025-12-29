@@ -91,11 +91,11 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     summary_text = f"""
     ## {market.upper()} Price Summary
     ### for {type_name} in the past {days} days:
-    Start Price: {summary['start_price']:.2f} ISK
-    End Price: {summary['end_price']:.2f} ISK
-    High Price: {summary['highest_price']:.2f} ISK
-    Low Price: {summary['lowest_price']:.2f} ISK
-    Change: {summary['absolute_change']:.2f} ISK ({summary['change_percent']:+.2f}%)
+    Start Price: {summary['start_price']:,} ISK
+    End Price: {summary['end_price']:,} ISK
+    High Price: {summary['highest_price']:,} ISK
+    Low Price: {summary['lowest_price']:,} ISK
+    Change: {summary['absolute_change']:+,} ISK ({summary['change_percent']:+.2f}%)
     """
 
     return summary_text
