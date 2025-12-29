@@ -195,24 +195,32 @@ async def item_summary(
     market: Literal["Jita", "C-J6MT (GSF)"],
     days_history: Optional[float]
 ):
+    log.debug(f"Command item_summary called with arguments: {item_name}, {market}, {days_history}")
     user_id = interaction.user.id
     now = time.time()
+    log.debug(f"Logged time as {now}")
 
     if now < cooldowns[user_id]:
+        log.debug(f"Sending cooldown message to user {interaction.user.display_name}")
         retry_after = cooldowns[user_id] - now
         await interaction.response.send_message(
             f"You're on cooldown! Try again in `{retry_after:.1f}` seconds.",
             ephemeral=True
         )
+        log.debug("Cooldown message sent")
         return
     else:
         cooldowns[user_id] = now + COOLDOWN_SECONDS
+        log.debug(f"Set user {interaction.user.display_name} cooldown to {now + COOLDOWN_SECONDS} seconds")
 
     await interaction.response.defer()
 
     async def inner():
+        log.debug(f"Item name recived as {item_name}")
         item_key = item_name.strip().lower()
+        log.debug(f"Translated into item key of: {item_key}")
         if item_key not in name_to_id:
+            log.debug(f"Item key not found in item_id list")
             await interaction.followup.send(
                 f"Item '{item_name}' not found. Please use the exact in-game name.",
                 ephemeral=True
@@ -220,14 +228,18 @@ async def item_summary(
             return
         
         item_id = name_to_id[item_key]
+        log.debug(f"Set item_id to {item_id}")
 
         command = [
             sys.executable,
             str(MARKET_SUMMARY_GENERATOR),
             "--type_id", str(item_id),
-            "--market", str(market),
-            "--days", float(days_history)
+            "--market", str(market)
         ]
+
+        if days_history:
+            command.append("--days")
+            command.append(str(days_history))
 
         log.debug(f"Running subprocess: {' '.join(command)}")
 
@@ -236,9 +248,12 @@ async def item_summary(
         log.error(result.stderr)
 
         if result.returncode == 0:
+            log.debug(f"Recieved code 0")
             summary = result.stdout.strip()
+            log.debug(f"Generated summary as {summary}")
 
         if result.returncode != 0:
+            log.warning(f"Recieved code {result.returncode}")
             await interaction.followup.send(
                 f"Market Summary failed for **{item_name}**.",
                 ephemeral=True
