@@ -239,7 +239,7 @@ async def item_summary(
 
         if days_history:
             command.append("--days")
-            command.append(str(days_history))
+            command.append(float(days_history))
 
         log.debug(f"Running subprocess: {' '.join(command)}")
 
