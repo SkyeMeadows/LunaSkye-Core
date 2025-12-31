@@ -65,17 +65,15 @@ async def split_into_blocks(text, ignore_first_line=True):
 
 async def parse_input(text, ignore_first_line=True):
     blocks = await split_into_blocks(text, ignore_first_line=ignore_first_line)
-    
-    # Temporary storage: map item_id -> (name, total_qty, list_of_sections_it_appeared_in)
+   
     item_tracker = {}
 
-    # First pass: collect all items and track sections
     for i, block in enumerate(blocks):
         section = SECTION_NAMES[i] if i < len(SECTION_NAMES) else f"extra_{i - len(SECTION_NAMES) + 1}"
         
         for line in block:
             item = await parse_line(line)
-            if item and item["id"] is not None:  # Only if we successfully mapped ID
+            if item and item["id"] is not None:  
                 item_id = item["id"]
                 name = item["name"]
                 qty = item["qty"]
@@ -92,11 +90,8 @@ async def parse_input(text, ignore_first_line=True):
                         "sections": [section]
                     }
 
-    # Now build final parsed structure: one entry per unique item
     parsed = {}
     for item_data in item_tracker.values():
-        # You can choose how to group in output:
-        # Option A: Put in the FIRST section it appeared in
         primary_section = item_data["sections"][0]
         if primary_section not in parsed:
             parsed[primary_section] = []
@@ -105,9 +100,6 @@ async def parse_input(text, ignore_first_line=True):
             "qty": item_data["qty"],
             "id": item_data["id"]
         })
-
-        # Option B (alternative): Create a flat "all_items" list instead — better for shopping list
-        # We'll go with Option A for now to preserve section structure
 
     return parsed
 
