@@ -8,10 +8,6 @@ from modules.esi.data_control import pull_recent_data
 
 log = get_logger("FittingImportCalc-Web")
 
-
-log.warning("Using jita data as testing fallback")
-DB_PATH = MARKET_DB_FILE_JITA
-
 SECTION_NAMES = ["low", "medium", "high", "rigs", "cargo"]
 
 qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
@@ -31,37 +27,47 @@ async def parse_line(line):
 
     item_id = await map_name_to_id(name)
 
-    price_pull = await pull_recent_data(item_id, DB_PATH)
-    price = price_pull[0]["price"]
-    subtotal = price * qty
-    log.debug(f"Got price: {price} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal}")
+    price_jita = 0
+    subtotal_jita = 0
+    price_pull_jita = await pull_recent_data(item_id, MARKET_DB_FILE_JITA)
+    if price_pull_jita:
+        price_jita = price_pull_jita[0]["price"]
+        subtotal_jita = price_jita * qty
 
-    return {"name": name, "qty": qty, "id": item_id, "price": price, "subtotal": subtotal}
+    price_gsf = 0
+    subtotal_gsf = 0
+    price_pull_gsf = await pull_recent_data(item_id, MARKET_DB_FILE_GSF)
+    if price_pull_gsf:
+        price_gsf = price_pull_gsf[0]["price"]
+        subtotal_gsf = price_gsf * qty
+    
+    if subtotal_gsf != 0:
+        markup = subtotal_gsf - subtotal_jita
+    else:
+        markup = subtotal_jita
+    
+
+    log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
+    log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
+
+    return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, "markup": markup}
 
 async def split_into_blocks(text, ignore_first_line=True):
-    """
-    Split input into blocks separated by one or more blank lines.
-    If ignore_first_line is True drop the very first non-empty line (title).
-    Returns list of blocks (each block is list of lines).
-    """
-    # Normalize newlines
     text = text.strip("\n")
-    # Split by one-or-more blank lines (keep internal whitespace lines removed)
     raw_blocks = re.split(r'\n\s*\n', text)
-    # Trim lines inside blocks and drop empty blocks
+
     blocks = []
+
     for block in raw_blocks:
         lines = [ln.rstrip() for ln in block.splitlines() if ln.strip() != ""]
         if lines:
             blocks.append(lines)
+
     if ignore_first_line and blocks:
-        # remove first line only (title line), but blocks[0] may contain multiple lines
-        # If title is the first line alone, it will become an empty block -> drop it.
         first_block = blocks[0]
         if len(first_block) == 1:
             blocks = blocks[1:]
         else:
-            # title and more lines in the first block: drop the first line only
             blocks[0] = first_block[1:]
     return blocks
 
@@ -79,12 +85,16 @@ async def parse_input(text, ignore_first_line=True):
                 item_id = item["id"]
                 name = item["name"]
                 qty = item["qty"]
-                price = item["price"]
-                subtotal = item["subtotal"]
+                price_jita = item["price_jita"]
+                subtotal_jita = item["subtotal_jita"]
+                price_gsf = item["price_gsf"]
+                subtotal_gsf = item["subtotal_gsf"]
+                markup = item["markup"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
-                    item_tracker[item_id]["subtotal"] = (item_tracker[item_id]["price"] * item_tracker[item_id]["qty"])
+                    item_tracker[item_id]["subtotal_jita"] = (item_tracker[item_id]["price_jita"] * item_tracker[item_id]["qty"])
+                    item_tracker[item_id]["subtotal_gsf"] = (item_tracker[item_id]["price_gsf"] * item_tracker[item_id]["qty"])
                     if section not in item_tracker[item_id]["sections"]:
                         item_tracker[item_id]["sections"].append(section)
                 else:
@@ -92,8 +102,11 @@ async def parse_input(text, ignore_first_line=True):
                         "name": name,
                         "qty": qty,
                         "id": item_id,
-                        "price": price,
-                        "subtotal": subtotal,
+                        "price_jita": price_jita,
+                        "subtotal_jita": subtotal_jita,
+                        "price_gsf": price_gsf,
+                        "subtotal_gsf": subtotal_gsf,
+                        "markup": markup,
                         "sections": [section]
                     }
 
@@ -106,8 +119,11 @@ async def parse_input(text, ignore_first_line=True):
             "name": item_data["name"],
             "qty": item_data["qty"],
             "id": item_data["id"],
-            "price": item_data["price"],
-            "subtotal": item_data["subtotal"]
+            "price_jita": item_data["price_jita"],
+            "subtotal_jita": item_data["subtotal_jita"],
+            "price_gsf": item_data["price_gsf"],
+            "subtotal_gsf": item_data["subtotal_gsf"],
+            "markup": item_data["markup"]
         })
 
     return parsed
