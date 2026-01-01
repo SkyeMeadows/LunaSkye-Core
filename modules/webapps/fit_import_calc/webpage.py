@@ -1,5 +1,6 @@
 import re
 import json
+import asyncio
 from quart import Quart, request, Response, render_template
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
@@ -167,7 +168,9 @@ async def stream():
 
     async def generate():
         async for event in parse_input_stream(user_input):
+            log.debug(f"Yielding: {event.get("item", "done")}")
             yield json.dumps(event) + "\n"
+            await asyncio.sleep(0)
     
     return Response(
         generate(), mimetype="application/json"
