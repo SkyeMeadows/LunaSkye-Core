@@ -13,7 +13,7 @@ SECTION_NAMES = ["low", "medium", "high", "rigs", "cargo"]
 qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
 
 async def parse_line(line):
-    """Return (name, qty) from a single line. qty defaults to 1."""
+    log.debug(f"Processing line: {line}")
     line = line.strip()
     if not line:
         return None
@@ -26,10 +26,12 @@ async def parse_line(line):
         name = line
 
     item_id = await map_name_to_id(name)
+    log.debug(f"item_id of item in this line mapped to: {item_id}")
 
     price_jita = 0
     subtotal_jita = 0
     price_pull_jita = await pull_recent_data(item_id, MARKET_DB_FILE_JITA)
+    log.debug(f"Pulled price data for Jita: {price_pull_jita}")
     if price_pull_jita:
         price_jita = price_pull_jita[0]["price"]
         subtotal_jita = price_jita * qty
@@ -37,13 +39,16 @@ async def parse_line(line):
     price_gsf = 0
     subtotal_gsf = 0
     price_pull_gsf = await pull_recent_data(item_id, MARKET_DB_FILE_GSF)
+    log.debug(f"Pulled price data for GSF: {price_pull_gsf}")
     if price_pull_gsf:
         price_gsf = price_pull_gsf[0]["price"]
         subtotal_gsf = price_gsf * qty
     
     if subtotal_gsf != 0:
         markup = subtotal_gsf - subtotal_jita
+        log.debug(f"Calculated GSF markup as {markup}")
     else:
+        log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
         markup = subtotal_jita
     
 
