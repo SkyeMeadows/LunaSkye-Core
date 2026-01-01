@@ -51,13 +51,15 @@
             <tr>
                 <th>Item</th>
                 <th>Quantity</th>
-                <th>Item ID</th>
+                <th>Price</th>
+                <th>Subtotal</th>
             </tr>
             {% for item in items %}
             <tr>
                 <td>{{ item.name }}</td>
                 <td>{{ item.qty }}</td>
-                <td>{{ item.id }}</td>
+                <td>{{ "{:,.2f}".format(item.price) }}</td>
+                <td>{{ "{:,.2f}".format(item.subtotal) }}</td>
             </tr>
             {% endfor %}
         </table>

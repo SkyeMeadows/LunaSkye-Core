@@ -1,13 +1,10 @@
 import pandas as pd
-import os
-import datetime
 import re
 from flask import Flask, render_template, request
-from dotenv import load_dotenv
-from pprint import pprint
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
+from modules.esi.data_control import pull_recent_data
 
 log = get_logger("FittingImportCalc-Web")
 
@@ -34,7 +31,12 @@ async def parse_line(line):
 
     item_id = await map_name_to_id(name)
 
-    return {"name": name, "qty": qty, "id": item_id}
+    price_pull = await pull_recent_data(item_id, DB_PATH)
+    price = price_pull[0]["price"]
+    subtotal = price * qty
+    log.debug(f"Got price: {price} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal}")
+
+    return {"name": name, "qty": qty, "id": item_id, "price": price, "subtotal": subtotal}
 
 async def split_into_blocks(text, ignore_first_line=True):
     """
@@ -77,9 +79,12 @@ async def parse_input(text, ignore_first_line=True):
                 item_id = item["id"]
                 name = item["name"]
                 qty = item["qty"]
+                price = item["price"]
+                subtotal = item["subtotal"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
+                    item_tracker[item_id]["subtotal"] = (item_tracker[item_id]["price"] * item_tracker[item_id]["qty"])
                     if section not in item_tracker[item_id]["sections"]:
                         item_tracker[item_id]["sections"].append(section)
                 else:
@@ -87,6 +92,8 @@ async def parse_input(text, ignore_first_line=True):
                         "name": name,
                         "qty": qty,
                         "id": item_id,
+                        "price": price,
+                        "subtotal": subtotal,
                         "sections": [section]
                     }
 
@@ -98,7 +105,9 @@ async def parse_input(text, ignore_first_line=True):
         parsed[primary_section].append({
             "name": item_data["name"],
             "qty": item_data["qty"],
-            "id": item_data["id"]
+            "id": item_data["id"],
+            "price": item_data["price"],
+            "subtotal": item_data["subtotal"]
         })
 
     return parsed
