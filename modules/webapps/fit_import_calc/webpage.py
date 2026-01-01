@@ -167,13 +167,31 @@ async def stream():
     user_input = form.get("fitting", "")
 
     async def generate():
-        async for event in parse_input_stream(user_input):
-            log.debug(f"Yielding: {event.get("item", "done")}")
-            yield json.dumps(event) + "\n"
-            await asyncio.sleep(0)
+        try:
+            item_count = 0
+
+            async for event in parse_input_stream(user_input):
+                item_count += 1
+
+                payload = json.dumps(event, separators=(",",":")) + "\n" 
+                yield(payload)
+                log.debug(f"Yielding: {event.get("item", "done")}")
+                await asyncio.sleep(0.002)
+        
+        except Exception as e:
+            error_event = {
+                "type": "error",
+                "message": str(e),
+            }
+            yield json.dumps(error_event) + "\n"
     
     return Response(
-        generate(), mimetype="application/json"
+        generate(),
+        mimetype="application/json",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # nginx-safe
+        },
     )
 
 
