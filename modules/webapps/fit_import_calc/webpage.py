@@ -5,7 +5,7 @@ from quart import Quart, request, Response, render_template
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
-from modules.esi.data_control import pull_recent_data
+from modules.esi.data_control import pull_fitting_price_data
 
 log = get_logger("FittingImportCalc-Web")
 
@@ -33,18 +33,18 @@ async def parse_line(line):
 
     price_jita = 0
     subtotal_jita = 0
-    price_pull_jita = await pull_recent_data(item_id, MARKET_DB_FILE_JITA)
+    price_pull_jita = await pull_fitting_price_data(item_id, MARKET_DB_FILE_JITA)
     log.debug(f"Pulled price data for Jita: {price_pull_jita}")
     if price_pull_jita:
-        price_jita = price_pull_jita[0]["price"]
+        price_jita = price_pull_jita[3]
         subtotal_jita = price_jita * qty
 
     price_gsf = 0
     subtotal_gsf = 0
-    price_pull_gsf = await pull_recent_data(item_id, MARKET_DB_FILE_GSF)
+    price_pull_gsf = await pull_fitting_price_data(item_id, MARKET_DB_FILE_GSF)
     log.debug(f"Pulled price data for GSF: {price_pull_gsf}")
     if price_pull_gsf:
-        price_gsf = price_pull_gsf[0]["price"]
+        price_gsf = price_pull_gsf[3]
         subtotal_gsf = price_gsf * qty
     
     if subtotal_gsf != 0:

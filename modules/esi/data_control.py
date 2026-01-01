@@ -93,3 +93,27 @@ async def query_db_days(type_id, market_db, days):
             rows = await cursor.fetchall()
             log.debug(f"Returning recent data for type id {type_id}")
             return rows
+        
+async def pull_fitting_price_data(type_id, market_db):
+    query = """
+        SELECT timestamp, type_id, volume_remain, price, is_buy_order
+        FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY type_id 
+                    ORDER BY timestamp DESC, price ASC
+                ) AS rn
+            FROM market_orders
+            WHERE type_id = ?
+            AND is_buy_order = FALSE
+        )
+        WHERE rn = 1
+    """
+    params = [type_id]
+
+    async with aiosqlite.connect(market_db, timeout=15) as conn:
+        async with conn.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            return row
+
+        
