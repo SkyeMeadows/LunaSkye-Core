@@ -97,22 +97,19 @@ async def query_db_days(type_id, market_db, days):
 async def pull_fitting_price_data(type_id, market_db):
     query = """
         SELECT timestamp, type_id, volume_remain, price, is_buy_order
-        FROM (
-            SELECT *,
-                ROW_NUMBER() OVER (
-                    PARTITION BY type_id 
-                    ORDER BY timestamp DESC, price ASC
-                ) AS rn
-            FROM market_orders
-            WHERE type_id = ?
-            AND is_buy_order = FALSE
-        )
-        WHERE rn = 1
+        FROM market_orders
+        WHERE type_id = ?
+          AND is_buy_order = 0
+        ORDER BY timestamp DESC, price ASC
+        LIMIT 1
     """
-    params = [type_id]
 
     async with aiosqlite.connect(market_db, timeout=15) as conn:
-        async with conn.execute(query, params) as cursor:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("PRAGMA journal_mode=WAL;")
+        await conn.commit()
+
+        async with conn.execute(query, (type_id,)) as cursor:
             row = await cursor.fetchone()
             return row
 
