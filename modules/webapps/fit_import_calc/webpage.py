@@ -13,6 +13,8 @@ SECTION_NAMES = ["low", "medium", "high", "rigs", "cargo"]
 
 qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
 
+parse_sem = asyncio.Semaphore(2)
+
 async def parse_line(line):
     log.debug(f"Processing line: {line}")
     line = line.strip()
