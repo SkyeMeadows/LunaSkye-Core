@@ -37,36 +37,116 @@
 <body>
     <h1>Fitting Parser</h1>
 
-    <form method="post">
-        <textarea name="fitting" placeholder="Paste your fitting here..."></textarea><br>
-        <button type="submit">Parse</button>
+    <form id="fit-form">
+        <textarea name="fitting" rows="15"></textarea>
+        <button type="submit">Calculate</button>
     </form>
+
+    <div id="progress-container" style="display:none;">
+        <progress id="progress-bar" value="0" max="100"></progress>
+        <div id="status-text"></div>
+    </div>
+
+    <div id="results"></div>
 
     {% if parsed %}
     <h2>Parsed Fitting</h2>
     {% for section, items in parsed.items() %}
     <div class="section">
-        <h3>{{ section|capitalize }}</h3>
-        <table>
-            <tr>
-                <th>Item</th>
-                <th>Quantity</th>
-                <th>Subtotal (Jita)</th>
-                <th>Subtotal (C-J6MT)</th>
-                <th>C-J6MT Markup</th>
-            </tr>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.name }}</td>
-                <td>{{ item.qty }}</td>
-                <td>{{ "{:,.2f}".format(item.subtotal_jita) }}</td>
-                <td>{{ "{:,.2f}".format(item.subtotal_gsf) }}</td>
-                <td>{{ "{:,.2f}".format(item.markup) }}</td>
-            </tr>
-            {% endfor %}
-        </table>
     </div>
     {% endfor %}
     {% endif %}
 </body>
 </html>
+
+<script>
+const form = document.getElementById("fit-form");
+const progressContainer = document.getElementById("progress-container");
+const progressBar = document.getElementById("progress-bar");
+const statusText = document.getElementById("status-text");
+const resultsDiv = document.getElementById("results");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  // Reset UI
+  progressContainer.style.display = "block";
+  progressBar.value = 0;
+  statusText.textContent = "Starting...";
+  resultsDiv.innerHTML = "";
+
+  const formData = new FormData(form);
+
+  const response = await fetch("/stream", {
+    method: "POST",
+    body: formData
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      const msg = JSON.parse(line);
+
+      if (msg.type === "progress") {
+        progressBar.value = (msg.current / msg.total) * 100;
+        statusText.textContent =
+          `Processing ${msg.current} / ${msg.total}: ${msg.item}`;
+      }
+
+      if (msg.type === "done") {
+        progressBar.value = 100;
+        statusText.textContent = "Done!";
+        renderResults(msg.parsed);
+      }
+    }
+  }
+});
+</script>
+
+<script>
+function renderResults(parsed) {
+  let html = "";
+
+  for (const [section, items] of Object.entries(parsed)) {
+    html += `<h3>${section}</h3><table>`;
+    html += `
+      <tr>
+        <th>Name</th>
+        <th>Qty</th>
+        <th>Jita Subtotal</th>
+        <th>C-J6MT Subtotal</th>
+        <th>Markup</th>
+      </tr>
+    `;
+
+    for (const item of items) {
+      html += `
+        <tr>
+          <td>${item.name}</td>
+          <td>${item.qty.toLocaleString()}</td>
+          <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
+          <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
+          <td>${Math.round(item.markup).toLocaleString()}</td>
+        </tr>
+      `;
+    }
+
+    html += "</table>";
+  }
+
+  resultsDiv.innerHTML = html;
+}
+</script>

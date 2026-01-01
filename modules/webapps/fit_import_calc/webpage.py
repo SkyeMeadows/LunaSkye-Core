@@ -1,6 +1,6 @@
-import pandas as pd
 import re
-from flask import Flask, render_template, request
+import json
+from quart import Quart, request, Response, render_template
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
@@ -71,9 +71,14 @@ async def split_into_blocks(text, ignore_first_line=True):
             blocks[0] = first_block[1:]
     return blocks
 
-async def parse_input(text, ignore_first_line=True):
+
+
+async def parse_input_stream(text, ignore_first_line=True):
     blocks = await split_into_blocks(text, ignore_first_line=ignore_first_line)
-   
+
+    total_items = sum(len(block) for block in blocks)
+    processed = 0
+
     item_tracker = {}
 
     for i, block in enumerate(blocks):
@@ -81,6 +86,14 @@ async def parse_input(text, ignore_first_line=True):
         
         for line in block:
             item = await parse_line(line)
+            processed += 1
+            yield {
+                "type": "progress",
+                "current": processed,
+                "total": total_items,
+                "item": line.strip(),
+                "section": section
+            }
             if item and item["id"] is not None:  
                 item_id = item["id"]
                 name = item["name"]
@@ -126,19 +139,35 @@ async def parse_input(text, ignore_first_line=True):
             "markup": item_data["markup"]
         })
 
-    return parsed
+    yield {
+    "type": "done",
+    "parsed": parsed
+    }
 
-app = Flask(__name__)
+app = Quart(__name__)
 @app.route("/", methods=["GET","POST"])
 async def index():
     result = None
     if request.method == "POST":
-        user_input = request.form.get("fitting", "")
+        form = await request.form
+        user_input = form.get("fitting", "")
         if user_input.strip():
-            result = await parse_input(user_input)
-    return render_template("index.html", parsed=result)
+            result = await parse_input_stream(user_input)
+    return await render_template("index.html", parsed=result)
 
+@app.route("/stream", methods=["POST"])
+async def stream():
+    form = await request.form
+    user_input = form.get("fitting", "")
+
+    async def generate():
+        async for event in parse_input_stream(user_input):
+            yield json.dumps(event) + "\n"
+    
+    return Response(
+        generate(), mimetype="application/json"
+    )
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002)
+    app.run(debug=True, host="localhost", port=5002)
