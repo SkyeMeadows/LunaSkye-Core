@@ -47,13 +47,12 @@
         <div id="status-text"></div>
     </div>
 
+    <div id="totals"></div>
+
     <div id="results"></div>
 
-    {% if parsed %}
-    <h2>Parsed Fitting</h2>
-    {% for section, items in parsed.items() %}
-    {% endfor %}
-    {% endif %}
+
+    
 </body>
 </html>
 
@@ -63,6 +62,7 @@ const progressContainer = document.getElementById("progress-container");
 const progressBar = document.getElementById("progress-bar");
 const statusText = document.getElementById("status-text");
 const resultsDiv = document.getElementById("results");
+const totalsDiv = document.getElementById("totals");
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -101,9 +101,10 @@ form.addEventListener("submit", async (e) => {
             }
 
             else if (msg.type === "done") {
+                console.log("DONE event received:", msg);
                 progressBar.value = 100;
                 statusText.textContent = "Done!";
-                renderResults(msg.parsed);
+                renderResults(msg.parsed, msg.totals);
             }
 
             else if (msg.type === "error") {
@@ -112,13 +113,16 @@ form.addEventListener("submit", async (e) => {
             }
         }
 
-        // Flush the last buffered line if stream is done
         if (done && buffer.trim()) {
             const msg = JSON.parse(buffer);
             if (msg.type === "done") {
                 progressBar.value = 100;
                 statusText.textContent = "Done!";
-                renderResults(msg.parsed);
+                finalParsed = msg.parsed;
+                finalTotals = msg.totals;
+                console.log("Sending parsed as", finalParsed)
+                console.log("Sending totals as", finalTotals)
+                renderResults(finalParsed, finalTotals);
             }
             else if (msg.type === "error") {
                 statusText.textContent = `Error: ${msg.message}`;
@@ -132,21 +136,37 @@ form.addEventListener("submit", async (e) => {
 </script>
 
 <script>
-function renderResults(parsed) {
-    console.log("renderResults called with", parsed);
+function renderResults(finalParsed, finalTotals) {
+    const totalsDiv = document.getElementById("totals");
 
-    let html = "";
+    console.log("renderResults called with", finalParsed);
+    console.log("renderResults totals:", finalTotals);
 
-    for (const [section, items] of Object.entries(parsed)) {
+    let html = "<h2>Parsed Fitting</h2>";
+
+    if (finalTotals) {
+        totalsDiv.innerHTML = `
+        <h2>Totals</h2>
+        <table>
+            <tr><th>Total Qty</th><td>${finalTotals.qty.toLocaleString()}</td></tr>
+            <tr><th>Total Volume</th><td>${finalTotals.volume.toLocaleString()}</td></tr>
+            <tr><th>Total Import Cost</th><td>${Math.round(finalTotals.import_cost).toLocaleString()}</td></tr>
+            <tr><th>Total Sell Price</th><td>${Math.round(finalTotals.subtotal_gsf).toLocaleString()}</td></tr>
+            <tr><th>Total Markup</th><td>${Math.round(finalTotals.markup).toLocaleString()}</td></tr>
+        </table>
+    `;
+    }
+
+    for (const [section, items] of Object.entries(finalParsed)) {
         html += `<h3>${section}</h3><table>`;
         html += `
         <tr>
             <th>Name</th>
             <th>Qty</th>
             <th>Volume</th>
-            <th>Jita Subtotal</th>
-            <th>C-J6MT Subtotal</th>
-            <th>Markup</th>
+            <th>Import Cost</th>
+            <th>C-J6MT Sell Price</th>
+            <th>Price Markup</th>
         </tr>
         `;
 
@@ -156,7 +176,7 @@ function renderResults(parsed) {
             <td>${item.name}</td>
             <td>${item.qty.toLocaleString()}</td>
             <td>${item.volume.toLocaleString()}</td>
-            <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
+            <td>${Math.round(item.import_cost).toLocaleString()}</td>
             <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
             <td>${Math.round(item.markup).toLocaleString()}</td>
             </tr>

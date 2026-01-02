@@ -9,7 +9,7 @@ from modules.esi.data_control import pull_fitting_price_data, get_volume
 
 log = get_logger("FittingImportCalc-Web")
 
-SECTION_NAMES = ["low", "medium", "high", "rigs", "cargo"]
+SECTION_NAMES = ["Ship", "Low", "Medium", "High", "Rigs", "Drones/Cargo", "Extra Cargo"]
 
 qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
 
@@ -47,52 +47,67 @@ async def parse_line(line):
         price_gsf = price_pull_gsf[3]
         subtotal_gsf = price_gsf * qty
     
-    if subtotal_gsf != 0:
-        markup = subtotal_gsf - subtotal_jita
-        log.debug(f"Calculated GSF markup as {markup}")
-    else:
-        log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
-        markup = subtotal_jita
+    
     
     volume_pull = await get_volume(item_id)
     volume = volume_pull * qty
     log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
+
+    import_cost = (price_jita * qty) + (volume * 1200)
+
+    if subtotal_gsf != 0:
+        markup = subtotal_gsf - import_cost
+        log.debug(f"Calculated GSF markup as {markup}")
+    else:
+        log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
+        markup = import_cost
 
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
 
     return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, 
             "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
-            "markup": markup, "volume": volume}
+            "markup": markup, "volume": volume, "import_cost": import_cost}
 
-async def split_into_blocks(text, ignore_first_line=True):
+async def split_into_blocks(text, first_line_as_block=True):
     text = text.strip("\n")
     raw_blocks = re.split(r'\n\s*\n', text)
 
     blocks = []
 
-    for block in raw_blocks:
+    for i, block in enumerate(raw_blocks):
         lines = [ln.rstrip() for ln in block.splitlines() if ln.strip() != ""]
-        if lines:
+        if not lines:
+            continue
+
+        if first_line_as_block and i == 0 and len(lines) > 1:
+            first_line = lines[0]
+            match = re.match(r'\[?([^\s,\]]+)', first_line)
+            first_word = match.group(1) if match else first_line
+            blocks.append([first_word])
+            if len(lines) > 1:
+                blocks.append(lines[1:])
+        else:
             blocks.append(lines)
 
-    if ignore_first_line and blocks:
-        first_block = blocks[0]
-        if len(first_block) == 1:
-            blocks = blocks[1:]
-        else:
-            blocks[0] = first_block[1:]
     return blocks
 
-
-
-async def parse_input_stream(text, ignore_first_line=True):
-    blocks = await split_into_blocks(text, ignore_first_line=ignore_first_line)
+async def parse_input_stream(text, first_line_as_block=True):
+    blocks = await split_into_blocks(text, first_line_as_block=first_line_as_block)
 
     total_items = sum(len(block) for block in blocks)
     processed = 0
 
     item_tracker = {}
+
+    totals = {
+        "qty": 0,
+        "subtotal_jita": 0.0,
+        "subtotal_gsf": 0.0,
+        "markup": 0.0,
+        "volume": 0.0,
+        "import_cost": 0.0,
+    }
 
     for i, block in enumerate(blocks):
         section = SECTION_NAMES[i] if i < len(SECTION_NAMES) else f"extra_{i - len(SECTION_NAMES) + 1}"
@@ -107,6 +122,7 @@ async def parse_input_stream(text, ignore_first_line=True):
                 "item": line.strip(),
                 "section": section
             }
+
             if item and item["id"] is not None:  
                 item_id = item["id"]
                 name = item["name"]
@@ -117,6 +133,7 @@ async def parse_input_stream(text, ignore_first_line=True):
                 subtotal_gsf = item["subtotal_gsf"]
                 markup = item["markup"]
                 volume = item["volume"]
+                import_cost = item["import_cost"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
@@ -135,8 +152,19 @@ async def parse_input_stream(text, ignore_first_line=True):
                         "subtotal_gsf": subtotal_gsf,
                         "markup": markup,
                         "volume": volume,
+                        "import_cost": import_cost,
                         "sections": [section]
                     }
+                
+                totals["qty"] += qty
+                totals["subtotal_jita"] += subtotal_jita
+                totals["subtotal_gsf"] += subtotal_gsf
+                totals["markup"] += markup
+                totals["volume"] += volume
+                totals["import_cost"] += import_cost
+
+
+                
 
     parsed = {}
     for item_data in item_tracker.values():
@@ -152,12 +180,14 @@ async def parse_input_stream(text, ignore_first_line=True):
             "price_gsf": item_data["price_gsf"],
             "subtotal_gsf": item_data["subtotal_gsf"],
             "markup": item_data["markup"],
-            "volume": item_data["volume"]
+            "volume": item_data["volume"],
+            "import_cost": item_data["import_cost"]
         })
 
     yield {
     "type": "done",
-    "parsed": parsed
+    "parsed": parsed,
+    "totals": totals,
     }
 
 app = Quart(__name__)
@@ -171,7 +201,8 @@ async def index():
             async for event in parse_input_stream(user_input):
                 if event["type"] == "done":
                     parsed = event["parsed"]
-            return await render_template("index.html", parsed=parsed)
+                    totals = event["totals"]
+            return await render_template("index.html", parsed=parsed, totals=totals)
     return await render_template("index.html")
 
 @app.route("/stream", methods=["POST"])
@@ -187,12 +218,11 @@ async def stream():
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
+                if event["type"] == "done":
+                    log.info(f"Streaming DONE event: {event}")
                 yield(payload)
                 log.debug(f"Yielding: {event.get("item", "done")}")
                 await asyncio.sleep(0.01)
-            
-            if event["type"] == "done":
-                log.info(f"Final parsed: {event['parsed']}")
         
         except Exception as e:
             error_event = {
