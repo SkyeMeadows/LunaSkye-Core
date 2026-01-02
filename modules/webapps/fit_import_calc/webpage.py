@@ -1,7 +1,7 @@
 import re
 import json
 import asyncio
-from quart import Quart, request, Response, render_template
+from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
@@ -196,6 +196,11 @@ async def stream():
         },
     )
 
+@app.before_request
+async def enforce_https():
+    if request.headers.get("X-Forwarded-Proto", "http") != "https":
+        url = request.url.replace("http://", "https://", 1)
+        return redirect(url, code=301)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5002)
