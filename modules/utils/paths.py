@@ -42,6 +42,7 @@ ORE_LIST = DATA_DIR / "ore_list.json"
 ICE_PRODUCT_LIST = DATA_DIR / "ice_product_list.json"
 REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
 REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
+ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
 
 # Files (ESI)
 TOKEN_FILE = ESI_DIR / "token.json"

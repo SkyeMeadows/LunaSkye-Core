@@ -1,5 +1,9 @@
 import aiosqlite
+import csv
+import pandas as pd
+from io import StringIO
 from modules.utils.logging_setup import get_logger
+from modules.utils.paths import ITEM_IDS_VOLUME_FILE
 
 log = get_logger("DataControl")
 
@@ -113,4 +117,7 @@ async def pull_fitting_price_data(type_id, market_db):
             row = await cursor.fetchone()
             return row
 
-        
+async def get_volume(type_id):
+    df = pd.read_csv(ITEM_IDS_VOLUME_FILE)
+    result = df[df['typeID'] == type_id]['volume']
+    return float(result.iloc[0])

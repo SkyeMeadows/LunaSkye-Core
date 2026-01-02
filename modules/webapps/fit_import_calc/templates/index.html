@@ -52,8 +52,6 @@
     {% if parsed %}
     <h2>Parsed Fitting</h2>
     {% for section, items in parsed.items() %}
-    <div class="section">
-    </div>
     {% endfor %}
     {% endif %}
 </body>
@@ -67,86 +65,108 @@ const statusText = document.getElementById("status-text");
 const resultsDiv = document.getElementById("results");
 
 form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Reset UI
-  progressContainer.style.display = "block";
-  progressBar.value = 0;
-  statusText.textContent = "Starting...";
-  resultsDiv.innerHTML = "";
+    // Reset UI
+    progressContainer.style.display = "block";
+    progressBar.value = 0;
+    statusText.textContent = "Starting...";
+    resultsDiv.innerHTML = "";
 
-  const formData = new FormData(form);
+    const formData = new FormData(form);
 
-  const response = await fetch("/stream", {
-    method: "POST",
-    body: formData
-  });
+    const response = await fetch("/stream", {
+        method: "POST",
+        body: formData
+    });
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-  let buffer = "";
+    let buffer = "";
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
+    while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop();
+        for (const line of lines) {
+            if (!line.trim()) continue;
+            const msg = JSON.parse(line);
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
+            if (msg.type === "progress") {
+                progressBar.value = (msg.current / msg.total) * 100;
+                statusText.textContent = `Processing ${msg.current} / ${msg.total}: ${msg.item}`;
+            }
 
-      const msg = JSON.parse(line);
+            else if (msg.type === "done") {
+                progressBar.value = 100;
+                statusText.textContent = "Done!";
+                renderResults(msg.parsed);
+            }
 
-      if (msg.type === "progress") {
-        progressBar.value = (msg.current / msg.total) * 100;
-        statusText.textContent =
-          `Processing ${msg.current} / ${msg.total}: ${msg.item}`;
-      }
+            else if (msg.type === "error") {
+                statusText.textContent = `Error: ${msg.message}`;
+                console.error(msg.message);
+            }
+        }
 
-      if (msg.type === "done") {
-        progressBar.value = 100;
-        statusText.textContent = "Done!";
-        renderResults(msg.parsed);
-      }
+        // Flush the last buffered line if stream is done
+        if (done && buffer.trim()) {
+            const msg = JSON.parse(buffer);
+            if (msg.type === "done") {
+                progressBar.value = 100;
+                statusText.textContent = "Done!";
+                renderResults(msg.parsed);
+            }
+            else if (msg.type === "error") {
+                statusText.textContent = `Error: ${msg.message}`;
+                console.error(msg.message);
+            }
+        }
+
+        if (done) break;
     }
-  }
 });
 </script>
 
 <script>
 function renderResults(parsed) {
-  let html = "";
+    console.log("renderResults called with", parsed);
 
-  for (const [section, items] of Object.entries(parsed)) {
-    html += `<h3>${section}</h3><table>`;
-    html += `
-      <tr>
-        <th>Name</th>
-        <th>Qty</th>
-        <th>Jita Subtotal</th>
-        <th>C-J6MT Subtotal</th>
-        <th>Markup</th>
-      </tr>
-    `;
+    let html = "";
 
-    for (const item of items) {
-      html += `
+    for (const [section, items] of Object.entries(parsed)) {
+        html += `<h3>${section}</h3><table>`;
+        html += `
         <tr>
-          <td>${item.name}</td>
-          <td>${item.qty.toLocaleString()}</td>
-          <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
-          <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
-          <td>${Math.round(item.markup).toLocaleString()}</td>
+            <th>Name</th>
+            <th>Qty</th>
+            <th>Volume</th>
+            <th>Jita Subtotal</th>
+            <th>C-J6MT Subtotal</th>
+            <th>Markup</th>
         </tr>
-      `;
+        `;
+
+        for (const item of items) {
+        html += `
+            <tr>
+            <td>${item.name}</td>
+            <td>${item.qty.toLocaleString()}</td>
+            <td>${item.volume.toLocaleString()}</td>
+            <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
+            <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
+            <td>${Math.round(item.markup).toLocaleString()}</td>
+            </tr>
+        `;
+        }
+
+        html += "</table>";
     }
 
-    html += "</table>";
-  }
-
-  resultsDiv.innerHTML = html;
+    resultsDiv.innerHTML = html;
 }
 </script>
+

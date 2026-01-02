@@ -5,7 +5,7 @@ from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
-from modules.esi.data_control import pull_fitting_price_data
+from modules.esi.data_control import pull_fitting_price_data, get_volume
 
 log = get_logger("FittingImportCalc-Web")
 
@@ -54,11 +54,16 @@ async def parse_line(line):
         log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
         markup = subtotal_jita
     
+    volume_pull = await get_volume(item_id)
+    volume = volume_pull * qty
+    log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
 
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
 
-    return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, "markup": markup}
+    return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, 
+            "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
+            "markup": markup, "volume": volume}
 
 async def split_into_blocks(text, ignore_first_line=True):
     text = text.strip("\n")
@@ -111,6 +116,7 @@ async def parse_input_stream(text, ignore_first_line=True):
                 price_gsf = item["price_gsf"]
                 subtotal_gsf = item["subtotal_gsf"]
                 markup = item["markup"]
+                volume = item["volume"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
@@ -128,6 +134,7 @@ async def parse_input_stream(text, ignore_first_line=True):
                         "price_gsf": price_gsf,
                         "subtotal_gsf": subtotal_gsf,
                         "markup": markup,
+                        "volume": volume,
                         "sections": [section]
                     }
 
@@ -144,7 +151,8 @@ async def parse_input_stream(text, ignore_first_line=True):
             "subtotal_jita": item_data["subtotal_jita"],
             "price_gsf": item_data["price_gsf"],
             "subtotal_gsf": item_data["subtotal_gsf"],
-            "markup": item_data["markup"]
+            "markup": item_data["markup"],
+            "volume": item_data["volume"]
         })
 
     yield {
@@ -153,15 +161,18 @@ async def parse_input_stream(text, ignore_first_line=True):
     }
 
 app = Quart(__name__)
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET", "POST"])
 async def index():
-    result = None
     if request.method == "POST":
         form = await request.form
         user_input = form.get("fitting", "")
         if user_input.strip():
-            result = await parse_input_stream(user_input)
-    return await render_template("index.html", parsed=result)
+            parsed = {}
+            async for event in parse_input_stream(user_input):
+                if event["type"] == "done":
+                    parsed = event["parsed"]
+            return await render_template("index.html", parsed=parsed)
+    return await render_template("index.html")
 
 @app.route("/stream", methods=["POST"])
 async def stream():
@@ -178,7 +189,10 @@ async def stream():
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
                 yield(payload)
                 log.debug(f"Yielding: {event.get("item", "done")}")
-                await asyncio.sleep(0.002)
+                await asyncio.sleep(0.01)
+            
+            if event["type"] == "done":
+                log.info(f"Final parsed: {event['parsed']}")
         
         except Exception as e:
             error_event = {
@@ -186,6 +200,8 @@ async def stream():
                 "message": str(e),
             }
             yield json.dumps(error_event) + "\n"
+    
+    
     
     return Response(
         generate(),
@@ -196,11 +212,12 @@ async def stream():
         },
     )
 
+'''
 @app.before_request
 async def enforce_https():
-    if request.headers.get("X-Forwarded-Proto", "http") != "https":
+    if request.scheme != "https":
         url = request.url.replace("http://", "https://", 1)
-        return redirect(url, code=301)
+        return redirect(url, code=301)'''
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002)
+    app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
