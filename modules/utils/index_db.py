@@ -11,8 +11,8 @@ async def index_db(DB_PATH):
         conn.commit()
 
 async def main():
-    #print("Indexing GSF DB...")
-    #await index_db(MARKET_DB_FILE_GSF)
+    print("Indexing GSF DB...")
+    await index_db(MARKET_DB_FILE_GSF)
     print("Indexing Jita DB...")
     await index_db(MARKET_DB_FILE_JITA)
     print("Complete!")
