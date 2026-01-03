@@ -176,6 +176,7 @@ function renderResults(finalParsed, finalTotals) {
             <th>Import Cost</th>
             <th>C-J6MT Sell Price</th>
             <th>Price Markup</th>
+            <th>Purchase Location</th>
         </tr>
         `;
 
@@ -188,6 +189,7 @@ function renderResults(finalParsed, finalTotals) {
             <td>${Math.round(item.import_cost).toLocaleString()}</td>
             <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
             <td>${Math.round(item.markup).toLocaleString()}</td>
+            <td>${item.purchase_loc}</td>
             </tr>
         `;
         }

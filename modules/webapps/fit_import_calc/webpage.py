@@ -81,12 +81,17 @@ async def parse_line(line):
         log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
         markup = import_cost
 
+    if markup > 0:
+        purchase_loc = "Jita"
+    else:
+        purchase_loc = "C-J6MT"
+
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
 
     return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, 
             "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
-            "markup": markup, "volume": volume, "import_cost": import_cost}
+            "markup": markup, "volume": volume, "import_cost": import_cost, "purchase_loc": purchase_loc}
 
 async def split_into_blocks(text, include_hull=True):
     text = text.strip("\n")
@@ -164,6 +169,7 @@ async def parse_input_stream(text, include_hull=True):
                 markup = item["markup"]
                 volume = item["volume"]
                 import_cost = item["import_cost"]
+                purchase_loc = item["purchase_loc"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
@@ -183,6 +189,7 @@ async def parse_input_stream(text, include_hull=True):
                         "markup": markup,
                         "volume": volume,
                         "import_cost": import_cost,
+                        "purchase_loc": purchase_loc,
                         "sections": [section]
                     }
                 
@@ -211,7 +218,8 @@ async def parse_input_stream(text, include_hull=True):
             "subtotal_gsf": item_data["subtotal_gsf"],
             "markup": item_data["markup"],
             "volume": item_data["volume"],
-            "import_cost": item_data["import_cost"]
+            "import_cost": item_data["import_cost"],
+            "purchase_loc": item_data["purchase_loc"]
         })
 
     yield {
@@ -273,7 +281,7 @@ async def stream():
         mimetype="application/json",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",  # nginx-safe
+            "X-Accel-Buffering": "no",
         },
     )
 
