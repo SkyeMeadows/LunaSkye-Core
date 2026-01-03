@@ -74,6 +74,8 @@ async def parse_line(line):
 
     import_cost = (price_jita * qty) + (volume * 1200)
 
+    min_price = min(import_cost, subtotal_gsf)
+
     if subtotal_gsf != 0:
         markup = subtotal_gsf - import_cost
         log.debug(f"Calculated GSF markup as {markup}")
@@ -91,7 +93,8 @@ async def parse_line(line):
 
     return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, 
             "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
-            "markup": markup, "volume": volume, "import_cost": import_cost, "purchase_loc": purchase_loc}
+            "markup": markup, "volume": volume, "import_cost": import_cost,"purchase_loc": purchase_loc,
+            "min_price": min_price}
 
 async def split_into_blocks(text, include_hull=True):
     text = text.strip("\n")
@@ -141,6 +144,7 @@ async def parse_input_stream(text, include_hull=True):
         "markup": 0.0,
         "volume": 0.0,
         "import_cost": 0.0,
+        "min_price": 0.0,
     }
 
     for i, block in enumerate(blocks):
@@ -170,6 +174,7 @@ async def parse_input_stream(text, include_hull=True):
                 volume = item["volume"]
                 import_cost = item["import_cost"]
                 purchase_loc = item["purchase_loc"]
+                min_price = item["min_price"]
 
                 if item_id in item_tracker:
                     item_tracker[item_id]["qty"] += qty
@@ -190,6 +195,7 @@ async def parse_input_stream(text, include_hull=True):
                         "volume": volume,
                         "import_cost": import_cost,
                         "purchase_loc": purchase_loc,
+                        "min_price": min_price,
                         "sections": [section]
                     }
                 
@@ -199,6 +205,7 @@ async def parse_input_stream(text, include_hull=True):
                 totals["markup"] += markup
                 totals["volume"] += volume
                 totals["import_cost"] += import_cost
+                totals["min_price"] += min_price
 
 
                 
@@ -219,7 +226,8 @@ async def parse_input_stream(text, include_hull=True):
             "markup": item_data["markup"],
             "volume": item_data["volume"],
             "import_cost": item_data["import_cost"],
-            "purchase_loc": item_data["purchase_loc"]
+            "purchase_loc": item_data["purchase_loc"],
+            "min_price": item_data["min_price"]
         })
 
     yield {

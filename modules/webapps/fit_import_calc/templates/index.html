@@ -157,11 +157,11 @@ function renderResults(finalParsed, finalTotals) {
         totalsDiv.innerHTML = `
         <h2>Totals</h2>
         <table>
-            <tr><th>Total Qty</th><td>${finalTotals.qty.toLocaleString()}</td></tr>
             <tr><th>Total Volume</th><td>${finalTotals.volume.toLocaleString()}</td></tr>
-            <tr><th>Total Import Cost</th><td>${Math.round(finalTotals.import_cost).toLocaleString()}</td></tr>
-            <tr><th>Total Sell Price</th><td>${Math.round(finalTotals.subtotal_gsf).toLocaleString()}</td></tr>
-            <tr><th>Total Markup</th><td>${Math.round(finalTotals.markup).toLocaleString()}</td></tr>
+            <tr><th>Jita Market Price</th><td>${Math.round(finalTotals.subtotal_jita).toLocaleString()}</td></tr>
+            <tr><th>C-J6MT Market Price</th><td>${Math.round(finalTotals.subtotal_gsf).toLocaleString()}</td></tr>
+            <tr><th>Total Market Markup</th><td>${Math.round(finalTotals.markup).toLocaleString()}</td></tr>
+            <tr><th>Minimum Obtainable Price</th><td>${Math.round(finalTotals.min_price).toLocaleString()}</td></tr>
         </table>
     `;
     }
@@ -173,8 +173,9 @@ function renderResults(finalParsed, finalTotals) {
             <th>Name</th>
             <th>Qty</th>
             <th>Volume</th>
-            <th>Import Cost</th>
+            <th>Jita Sell Price</th>
             <th>C-J6MT Sell Price</th>
+            <th>Import Price</th>
             <th>Price Markup</th>
             <th>Purchase Location</th>
         </tr>
@@ -186,8 +187,9 @@ function renderResults(finalParsed, finalTotals) {
             <td>${item.name}</td>
             <td>${item.qty.toLocaleString()}</td>
             <td>${item.volume.toLocaleString()}</td>
-            <td>${Math.round(item.import_cost).toLocaleString()}</td>
+            <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
             <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
+            <td>${Math.round(item.import_cost).toLocaleString()}
             <td>${Math.round(item.markup).toLocaleString()}</td>
             <td>${item.purchase_loc}</td>
             </tr>
