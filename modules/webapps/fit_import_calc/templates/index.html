@@ -38,7 +38,11 @@
     <h1>Fitting Parser</h1>
 
     <form id="fit-form">
-        <textarea name="fitting" rows="15"></textarea>
+        <textarea name="fitting" rows="15">{{ user_input | e }}</textarea>
+        <label>
+            <input type="checkbox" name="include_hull" unchecked>
+            Include Ship Hull
+        </label>
         <button type="submit">Calculate</button>
     </form>
 
@@ -78,6 +82,11 @@ form.addEventListener("submit", async (e) => {
     const response = await fetch("/stream", {
         method: "POST",
         body: formData
+    });
+
+    const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
+    includeHullCheckbox.addEventListener('change', () => {
+        form.dispatchEvent(new Event('submit'));
     });
 
     const reader = response.body.getReader();
@@ -189,4 +198,3 @@ function renderResults(finalParsed, finalTotals) {
     resultsDiv.innerHTML = html;
 }
 </script>
-

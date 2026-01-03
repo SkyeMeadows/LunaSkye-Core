@@ -88,7 +88,7 @@ async def parse_line(line):
             "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
             "markup": markup, "volume": volume, "import_cost": import_cost}
 
-async def split_into_blocks(text, first_line_as_block=True):
+async def split_into_blocks(text, include_hull=True):
     text = text.strip("\n")
     raw_blocks = re.split(r'\n\s*\n', text)
 
@@ -98,21 +98,31 @@ async def split_into_blocks(text, first_line_as_block=True):
         lines = [ln.rstrip() for ln in block.splitlines() if ln.strip() != ""]
         if not lines:
             continue
-
-        if first_line_as_block and i == 0 and len(lines) > 1:
-            first_line = lines[0]
-            match = re.match(r'\[?([^\s,\]]+)', first_line)
-            first_word = match.group(1) if match else first_line
-            blocks.append([first_word])
-            if len(lines) > 1:
-                blocks.append(lines[1:])
+    
+        if i == 0:
+            if include_hull and i == 0 and len(lines) > 1:
+                first_line = lines[0]
+                match = re.match(r'\[?([^\s,\]]+)', first_line)
+                first_word = match.group(1) if match else first_line
+                blocks.append([first_word])
+                if len(lines) > 1:
+                    blocks.append(lines[1:])
+            elif not include_hull:
+                if len(lines) >= 1:
+                    remaining = lines[1:]
+                    if remaining:
+                        blocks.append(remaining)
+            else:
+                blocks.append(lines)
         else:
             blocks.append(lines)
 
     return blocks
 
-async def parse_input_stream(text, first_line_as_block=True):
-    blocks = await split_into_blocks(text, first_line_as_block=first_line_as_block)
+async def parse_input_stream(text, include_hull=True):
+    blocks = await split_into_blocks(text, include_hull=include_hull)
+
+    offset = 0 if include_hull else 1
 
     total_items = sum(len(block) for block in blocks)
     processed = 0
@@ -129,7 +139,8 @@ async def parse_input_stream(text, first_line_as_block=True):
     }
 
     for i, block in enumerate(blocks):
-        section = SECTION_NAMES[i] if i < len(SECTION_NAMES) else f"extra_{i - len(SECTION_NAMES) + 1}"
+        section_index = i + offset
+        section = SECTION_NAMES[section_index] if section_index < len(SECTION_NAMES) else f"extra_{section_index - len(SECTION_NAMES) + 1}"
         
         for line in block:
             item = await parse_line(line)
@@ -212,33 +223,38 @@ async def parse_input_stream(text, first_line_as_block=True):
 app = Quart(__name__)
 @app.route("/", methods=["GET", "POST"])
 async def index():
+    include_hull = False
+    user_input = ""
     if request.method == "POST":
         form = await request.form
+        include_hull = 'include_hull' in form
         user_input = form.get("fitting", "")
         if user_input.strip():
             parsed = {}
-            async for event in parse_input_stream(user_input):
+            totals = {}
+            async for event in parse_input_stream(user_input, include_hull=include_hull):
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
-            return await render_template("index.html", parsed=parsed, totals=totals)
-    return await render_template("index.html")
+            return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull)
+    return await render_template("index.html", include_hull=True)
 
 @app.route("/stream", methods=["POST"])
 async def stream():
     form = await request.form
     user_input = form.get("fitting", "")
+    include_hull = 'include_hull' in form
 
     async def generate():
         try:
             item_count = 0
 
-            async for event in parse_input_stream(user_input):
+            async for event in parse_input_stream(user_input, include_hull=include_hull):
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
                 if event["type"] == "done":
-                    log.info(f"Streaming DONE event: {event}")
+                    log.debug(f"Streaming DONE event: {event}")
                 yield(payload)
                 log.debug(f"Yielding: {event.get("item", "done")}")
                 await asyncio.sleep(0.01)
