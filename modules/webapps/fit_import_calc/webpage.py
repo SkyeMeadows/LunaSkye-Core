@@ -3,7 +3,7 @@ import json
 import asyncio
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, ITEM_IDS_FILE
+from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
 
@@ -47,10 +47,29 @@ async def parse_line(line):
         price_gsf = price_pull_gsf[3]
         subtotal_gsf = price_gsf * qty
     
-    
+    with open(REPACKAGED_VOLUME, 'r') as file:
+        volume_data = json.load(file)
     
     volume_pull = await get_volume(item_id)
-    volume = volume_pull * qty
+
+    exists = False
+
+    if isinstance(volume_data, list):
+        for item in volume_data:
+            if isinstance(item, dict) and item.get('id') == item_id:
+                exists = True
+                item_volume = item.get('volume')
+                break
+    elif isinstance(volume_data, dict):
+        if str(item_id) in volume_data:  # Assuming keys are strings; adjust if needed
+            exists = True
+            item_volume = volume_data[str(item_id)]
+    
+    if exists:
+        volume = item_volume * qty
+    else:
+        volume = volume_pull * qty
+   
     log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
 
     import_cost = (price_jita * qty) + (volume * 1200)
