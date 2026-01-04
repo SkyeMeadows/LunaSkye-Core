@@ -1,6 +1,7 @@
 import re
 import json
 import asyncio
+import os
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
@@ -14,6 +15,8 @@ SECTION_NAMES = ["Ship", "Low", "Medium", "High", "Rigs", "Drones/Cargo", "Extra
 qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
 
 parse_sem = asyncio.Semaphore(2)
+
+testing_mode = os.getenv("TESTING_MODE")
 
 async def parse_line(line):
     log.debug(f"Processing line: {line}")
@@ -61,7 +64,7 @@ async def parse_line(line):
                 item_volume = item.get('volume')
                 break
     elif isinstance(volume_data, dict):
-        if str(item_id) in volume_data:  # Assuming keys are strings; adjust if needed
+        if str(item_id) in volume_data:
             exists = True
             item_volume = volume_data[str(item_id)]
     
@@ -293,12 +296,12 @@ async def stream():
         },
     )
 
-'''
 @app.before_request
 async def enforce_https():
-    if request.scheme != "https":
-        url = request.url.replace("http://", "https://", 1)
-        return redirect(url, code=301)'''
+    if testing_mode == False:
+        if request.scheme != "https":
+            url = request.url.replace("http://", "https://", 1)
+            return redirect(url, code=301)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
