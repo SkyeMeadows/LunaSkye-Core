@@ -2,6 +2,7 @@ import re
 import json
 import asyncio
 import os
+from dotenv import load_dotenv
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
@@ -16,7 +17,13 @@ qty_re = re.compile(r'\s+x(?P<qty>\d+)\s*$')   # matches " ... x42" at end
 
 parse_sem = asyncio.Semaphore(2)
 
+load_dotenv()
 testing_mode = os.getenv("TESTING_MODE")
+if testing_mode == "False":
+    testing_mode == False
+if testing_mode == "True":
+    log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")
+    testing_mode == True    
 
 async def parse_line(line):
     log.debug(f"Processing line: {line}")
@@ -301,7 +308,7 @@ async def enforce_https():
     if testing_mode == False:
         if request.scheme != "https":
             url = request.url.replace("http://", "https://", 1)
-            return redirect(url, code=301)
+            return redirect(url, code=301)    
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
