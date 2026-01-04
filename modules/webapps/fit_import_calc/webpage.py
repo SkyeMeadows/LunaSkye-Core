@@ -19,13 +19,10 @@ parse_sem = asyncio.Semaphore(2)
 
 load_dotenv()
 testing_mode = os.getenv("TESTING_MODE")
-log.debug(f"Got testing mode as: {testing_mode}")
 if testing_mode == "False":
     log.info("Running Production Server")
-    testing_mode = False
 if testing_mode == "True":
-    log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")
-    testing_mode = True    
+    log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")   
 
 async def parse_line(line):
     log.debug(f"Processing line: {line}")
@@ -248,24 +245,7 @@ async def parse_input_stream(text, include_hull=True):
     "totals": totals,
     }
 
-class ProxyMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope['type'] == 'http':
-            # Get headers as dict for easier access
-            headers = {k.decode(): v.decode() for k, v in scope.get('headers', [])}
-            proto = headers.get('x-forwarded-proto', scope['scheme'])
-            if proto.lower() == 'https':
-                scope['scheme'] = 'https'
-            # You can add handling for x-forwarded-for, x-forwarded-host, etc., if needed
-        return await self.app(scope, receive, send)
-
 app = Quart(__name__)
-
-app.asgi_app = ProxyMiddleware(app.asgi_app)
-
 @app.route("/", methods=["GET", "POST"])
 async def index():
     include_hull = False
@@ -327,9 +307,8 @@ async def enforce_https():
     if testing_mode:
         return
     if request.scheme != "https":
-        secure_url = request.url.replace("http://", "https://", 1)
-        log.info(f"Redirecting HTTP Request to HTTPS: {secure_url}")
-        return redirect(secure_url, code=301)    
+        url = request.url.replace("http://", "https://", 1)
+        return redirect(url, code=301)    
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
