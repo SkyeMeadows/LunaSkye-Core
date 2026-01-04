@@ -22,10 +22,10 @@ testing_mode = os.getenv("TESTING_MODE")
 log.debug(f"Got testing mode as: {testing_mode}")
 if testing_mode == "False":
     log.info("Running Production Server")
-    testing_mode == False
+    testing_mode = False
 if testing_mode == "True":
     log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")
-    testing_mode == True    
+    testing_mode = True    
 
 async def parse_line(line):
     log.debug(f"Processing line: {line}")
@@ -249,6 +249,7 @@ async def parse_input_stream(text, include_hull=True):
     }
 
 app = Quart(__name__)
+
 @app.route("/", methods=["GET", "POST"])
 async def index():
     include_hull = False
@@ -307,10 +308,12 @@ async def stream():
 
 @app.before_request
 async def enforce_https():
-    if testing_mode == False:
-        if request.scheme != "https":
-            url = request.url.replace("http://", "https://", 1)
-            return redirect(url, code=301)    
+    if testing_mode:
+        return
+    if request.scheme != "https":
+        secure_url = request.url.replace("http://", "https://", 1)
+        log.info(f"Redirecting HTTP Request to HTTPS: {secure_url}")
+        return redirect(secure_url, code=301)    
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
