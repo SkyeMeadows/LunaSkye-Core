@@ -248,7 +248,23 @@ async def parse_input_stream(text, include_hull=True):
     "totals": totals,
     }
 
+class ProxyMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope['type'] == 'http':
+            # Get headers as dict for easier access
+            headers = {k.decode(): v.decode() for k, v in scope.get('headers', [])}
+            proto = headers.get('x-forwarded-proto', scope['scheme'])
+            if proto.lower() == 'https':
+                scope['scheme'] = 'https'
+            # You can add handling for x-forwarded-for, x-forwarded-host, etc., if needed
+        return await self.app(scope, receive, send)
+
 app = Quart(__name__)
+
+app.asgi_app = ProxyMiddleware(app.asgi_app)
 
 @app.route("/", methods=["GET", "POST"])
 async def index():
