@@ -19,7 +19,9 @@ parse_sem = asyncio.Semaphore(2)
 
 load_dotenv()
 testing_mode = os.getenv("TESTING_MODE")
+log.debug(f"Got testing mode as: {testing_mode}")
 if testing_mode == "False":
+    log.info("Running Production Server")
     testing_mode == False
 if testing_mode == "True":
     log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")
