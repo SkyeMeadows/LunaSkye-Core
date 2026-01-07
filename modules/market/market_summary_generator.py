@@ -1,8 +1,5 @@
 import argparse
 import pandas as pd
-from datetime import datetime, timedelta, timezone, UTC
-import aiosqlite
-from dotenv import load_dotenv
 from pathlib import Path
 import sys
 import asyncio
