@@ -15,7 +15,6 @@ def reclaim_space(db_path: Path, chunk_bytes: int):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Get current free space (in pages)
     cursor.execute("PRAGMA freelist_count;")
     freelist_pages = cursor.fetchone()[0]
 
@@ -24,24 +23,28 @@ def reclaim_space(db_path: Path, chunk_bytes: int):
         conn.close()
         return False
 
-    # Convert desired bytes to pages (page size is usually 4096, but we query it)
     cursor.execute("PRAGMA page_size;")
     page_size = cursor.fetchone()[0]
+
     pages_to_vacuum = min(freelist_pages, chunk_bytes // page_size)
 
-    if pages_to_vacuum == 0:
-        print(f"[{db_path.name}] Chunk size too small for current page size.")
-        conn.close()
-        return False
+    actual_mb = (pages_to_vacuum * page_size) // (1024 * 1024)
+    print(f"[{db_path.name}] Reclaiming ~{actual_mb} MB ({pages_to_vacuum} pages out of {freelist_pages} free)")
 
-    print(f"[{db_path.name}] Reclaiming up to {pages_to_vacuum * page_size // 1024 // 1024} MB "
-          f"({pages_to_vacuum} pages)")
+    # Perform the incremental vacuum
+    if pages_to_vacuum <= 100:
+        # When only a tiny amount is left, just reclaim everything remaining
+        print(f"[{db_path.name}] Remaining space small — reclaiming all leftover pages.")
+        cursor.execute("PRAGMA incremental_vacuum;")  # Reclaim all possible
+    else:
+        cursor.execute(f"PRAGMA incremental_vacuum({pages_to_vacuum});")
 
-    cursor.execute(f"PRAGMA incremental_vacuum({pages_to_vacuum});")
     conn.commit()
     conn.close()
 
-    return True  # Space was reclaimed
+    # Always check again after vacuum — if nothing was freed, we're done
+    # But we return True/False based on whether freelist was >0 before this pass
+    return freelist_pages > 0
 
 def vacuum_database(db_path: Path, max_chunk_mb: int):
     db_path = db_path.resolve()
