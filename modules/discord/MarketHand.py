@@ -182,9 +182,9 @@ async def get_graph(
         )
 
     try:
-        await asyncio.wait_for(inner(), timeout=15)
+        await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
-        await interaction.followup.send("Graph generation took too long (15s timeout).", ephemeral=True)
+        await interaction.followup.send("Graph generation took too long (30s timeout).", ephemeral=True)
 
 
 
@@ -270,9 +270,9 @@ async def item_summary(
 
 
     try:
-        await asyncio.wait_for(inner(), timeout=15)
+        await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
-        await interaction.followup.send("Process took too long (15s timeout).", ephemeral=True)
+        await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
 
 
 
