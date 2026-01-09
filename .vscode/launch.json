@@ -10,7 +10,9 @@
                 "--type_id",
                 "34",
                 "--market",
-                "jita"
+                "jita",
+                "--days",
+                "7"
             ]
         },
         {
@@ -22,7 +24,9 @@
                 "--type_id",
                 "34",
                 "--market",
-                "c-j6mt (gsf)"
+                "c-j6mt (gsf)",
+                "--days",
+                "21"
             ]
         },
         {

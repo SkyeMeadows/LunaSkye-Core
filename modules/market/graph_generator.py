@@ -18,7 +18,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ORE_LIST
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF
 
 log = get_logger("GraphGenerator")
 
@@ -54,20 +54,21 @@ async def connect_to_db(type_id: int, days: int, market: str):
     async with aiosqlite.connect(MARKET_DB) as db:
         db.row_factory = aiosqlite.Row
 
+        now_datetime = datetime.now(UTC)
+        time_delta = timedelta(days=days)
+
+        cutoff = (now_datetime - time_delta)
+        cutoff_str = cutoff.isoformat()
+
         query = """
             SELECT timestamp, type_id, price, is_buy_order
             FROM market_orders
             WHERE type_id = ?
             AND is_buy_order = FALSE
+            AND timestamp >= ?
+            ORDER BY timestamp ASC
         """
-        params = [type_id]
-
-        if days:
-            cutoff = int((datetime.now(UTC) - timedelta(days=days)).timestamp())
-            query += " AND timestamp >= ?"
-            params.append(cutoff)
-
-        query += " ORDER BY timestamp ASC"
+        params = [type_id, cutoff_str]
 
         async with db.execute(query, tuple(params)) as cursor:
             rows = await cursor.fetchall()
@@ -120,7 +121,7 @@ async def generate_graph(type_id, days, market, type_name):
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d %H:%M'))
 
     # Smart tick spacing based on time range
-    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, days // 10)))
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, int(days // 10))))
 
     plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
     fig.autofmt_xdate()  # helps with layout
