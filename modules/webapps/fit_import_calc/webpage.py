@@ -64,15 +64,19 @@ async def parse_line(line):
     exists = False
     item_volume = 0
     if isinstance(volume_data, list):
+        log.debug(f"Item {item_id} ({name}) item has volume data in list")
         for item in volume_data:
             if isinstance(item, dict) and item.get('id') == item_id:
                 exists = True
                 item_volume = item.get('volume')
                 break
     elif isinstance(volume_data, dict):
+        log.debug(f"Item {item_id} ({name}) item has volume data in dict")
         if str(item_id) in volume_data:
             exists = True
             item_volume = volume_data[str(item_id)]
+    else:
+        log.warning(f"Item {item_id} ({item}) does NOT have volume data")
     
     volume_per_unit = item_volume if exists else volume_pull
     volume = volume_per_unit * qty
