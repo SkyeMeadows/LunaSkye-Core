@@ -110,6 +110,7 @@ async def parse_line(line):
             "subtotal_gsf": subtotal_gsf,
             "markup": markup,
             "volume": volume,
+            "volume_per_unit": volume_per_unit,
             "import_cost": import_cost,
             "purchase_loc": purchase_loc,
             "min_price": min_price}
