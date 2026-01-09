@@ -101,7 +101,7 @@ async def parse_line(line):
 
     min_price = min(import_cost, subtotal_gsf)
 
-    if (markup > 0 & subtotal_gsf != 0):
+    if (markup > 0 and subtotal_gsf != 0):
         purchase_loc = "Jita"
     else:
         purchase_loc = "C-J6MT"
