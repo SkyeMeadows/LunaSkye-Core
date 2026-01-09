@@ -62,7 +62,7 @@ async def parse_line(line):
     volume_pull = await get_volume(item_id)
 
     exists = False
-
+    item_volume = 0
     if isinstance(volume_data, list):
         for item in volume_data:
             if isinstance(item, dict) and item.get('id') == item_id:
@@ -74,16 +74,14 @@ async def parse_line(line):
             exists = True
             item_volume = volume_data[str(item_id)]
     
-    if exists:
-        volume = item_volume * qty
-    else:
-        volume = volume_pull * qty
+    volume_per_unit = item_volume if exists else volume_pull
+    volume = volume_per_unit * qty
    
     log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
 
     import_cost = (price_jita * qty) + (volume * 1200)
 
-    min_price = min(import_cost, subtotal_gsf)
+
 
     if subtotal_gsf != 0:
         markup = subtotal_gsf - import_cost
@@ -92,17 +90,24 @@ async def parse_line(line):
         log.warning(f"Zero-Value for GSF subtotal, markup being set to jita subtotal")
         markup = import_cost
 
-    if markup > 0:
-        purchase_loc = "Jita"
-    else:
-        purchase_loc = "C-J6MT"
+    min_price = min(import_cost, subtotal_gsf)
+
+    purchase_loc = "Jita" if markup > 0 else "C-J6MT"
 
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
 
-    return {"name": name, "qty": qty, "id": item_id, "price_jita": price_jita, 
-            "subtotal_jita": subtotal_jita, "price_gsf": price_gsf, "subtotal_gsf": subtotal_gsf, 
-            "markup": markup, "volume": volume, "import_cost": import_cost,"purchase_loc": purchase_loc,
+    return {"name": name,
+            "qty": qty,
+            "id": item_id,
+            "price_jita": price_jita,
+            "subtotal_jita": subtotal_jita,
+            "price_gsf": price_gsf,
+            "subtotal_gsf": subtotal_gsf,
+            "markup": markup,
+            "volume": volume,
+            "import_cost": import_cost,
+            "purchase_loc": purchase_loc,
             "min_price": min_price}
 
 async def split_into_blocks(text, include_hull=True):
@@ -175,46 +180,61 @@ async def parse_input_stream(text, include_hull=True):
                 item_id = item["id"]
                 name = item["name"]
                 qty = item["qty"]
-                price_jita = item["price_jita"]
-                subtotal_jita = item["subtotal_jita"]
-                price_gsf = item["price_gsf"]
-                subtotal_gsf = item["subtotal_gsf"]
-                markup = item["markup"]
-                volume = item["volume"]
-                import_cost = item["import_cost"]
-                purchase_loc = item["purchase_loc"]
-                min_price = item["min_price"]
+                section = section
 
                 if item_id in item_tracker:
-                    item_tracker[item_id]["qty"] += qty
-                    item_tracker[item_id]["subtotal_jita"] = (item_tracker[item_id]["price_jita"] * item_tracker[item_id]["qty"])
-                    item_tracker[item_id]["subtotal_gsf"] = (item_tracker[item_id]["price_gsf"] * item_tracker[item_id]["qty"])
+                    old_qty = item_tracker[item_id]["qty"]
+                    new_qty = old_qty + qty
+
+                    item_tracker[item_id]["qty"] = new_qty
+                    item_tracker[item_id]["subtotal_jita"] = item_tracker[item_id]["price_jita"] * new_qty
+                    item_tracker[item_id]["subtotal_gsf"] = item_tracker[item_id]["price_gsf"] * new_qty
+
+                    volume_per_unit = item_tracker[item_id]["volume_per_unit"]
+                    volume_total = volume_per_unit * new_qty
+                    import_cost_total = (item_tracker[item_id]["price_jita"] * new_qty) + (volume_total * 1200)
+                    markup_total = (
+                        item_tracker[item_id]["subtotal_gsf"] - import_cost_total
+                        if item_tracker[item_id]["subtotal_gsf"] != 0
+                        else import_cost_total
+                    )
+                    min_price_total = min(import_cost_total, item_tracker[item_id]["subtotal_gsf"])
+                    purchase_loc = "Jita" if markup_total > 0 else "C-J6MT"
+
+                    item_tracker[item_id]["volume"] = volume_total
+                    item_tracker[item_id]["import_cost"] = import_cost_total
+                    item_tracker[item_id]["markup"] = markup_total
+                    item_tracker[item_id]["min_price"] = min_price_total
+                    item_tracker[item_id]["purchase_loc"] = purchase_loc
+
                     if section not in item_tracker[item_id]["sections"]:
                         item_tracker[item_id]["sections"].append(section)
+
                 else:
+                    volume_per_unit = item["volume_per_unit"]
                     item_tracker[item_id] = {
                         "name": name,
                         "qty": qty,
                         "id": item_id,
-                        "price_jita": price_jita,
-                        "subtotal_jita": subtotal_jita,
-                        "price_gsf": price_gsf,
-                        "subtotal_gsf": subtotal_gsf,
-                        "markup": markup,
-                        "volume": volume,
-                        "import_cost": import_cost,
-                        "purchase_loc": purchase_loc,
-                        "min_price": min_price,
-                        "sections": [section]
+                        "price_jita": item["price_jita"],
+                        "price_gsf": item["price_gsf"],
+                        "volume_per_unit": volume_per_unit,
+                        "subtotal_jita": item["subtotal_jita"],
+                        "subtotal_gsf": item["subtotal_gsf"],
+                        "markup": item["markup"],
+                        "volume": item["volume"],
+                        "import_cost": item["import_cost"],
+                        "min_price": item["min_price"],
+                        "purchase_loc": item["purchase_loc"],
+                        "sections": [section],
                     }
-                
+
                 totals["qty"] += qty
-                totals["subtotal_jita"] += subtotal_jita
-                totals["subtotal_gsf"] += subtotal_gsf
-                totals["markup"] += markup
-                totals["volume"] += volume
-                totals["import_cost"] += import_cost
-                totals["min_price"] += min_price
+                totals["volume"] += item["volume"]
+                totals["import_cost"] += item["import_cost"]
+                totals["markup"] += item["markup"]
+                totals["subtotal_jita"] += item["subtotal_jita"]
+                totals["subtotal_gsf"] += item["subtotal_gsf"]
 
 
                 
@@ -235,14 +255,14 @@ async def parse_input_stream(text, include_hull=True):
             "markup": item_data["markup"],
             "volume": item_data["volume"],
             "import_cost": item_data["import_cost"],
+            "min_price": item_data["min_price"],
             "purchase_loc": item_data["purchase_loc"],
-            "min_price": item_data["min_price"]
         })
 
     yield {
-    "type": "done",
-    "parsed": parsed,
-    "totals": totals,
+        "type": "done",
+        "parsed": parsed,
+        "totals": totals,
     }
 
 app = Quart(__name__)
