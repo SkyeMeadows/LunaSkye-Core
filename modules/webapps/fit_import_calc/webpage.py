@@ -29,6 +29,11 @@ async def parse_line(line):
     line = line.strip()
     if not line:
         return None
+    
+    if "[Empty" in line:
+        log.debug(f"Skipping line containing '[Empty': {line}")
+        return None
+    
     m = qty_re.search(line)
     if m:
         qty = int(m.group("qty"))
