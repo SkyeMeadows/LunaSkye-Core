@@ -240,6 +240,7 @@ async def parse_input_stream(text, include_hull=True):
                 totals["markup"] += item["markup"]
                 totals["subtotal_jita"] += item["subtotal_jita"]
                 totals["subtotal_gsf"] += item["subtotal_gsf"]
+                totals["min_price"] += item["min_price"]
 
 
                 
