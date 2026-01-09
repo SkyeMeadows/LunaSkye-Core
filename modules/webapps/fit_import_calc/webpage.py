@@ -101,7 +101,10 @@ async def parse_line(line):
 
     min_price = min(import_cost, subtotal_gsf)
 
-    purchase_loc = "Jita" if markup > 0 else "C-J6MT"
+    if (markup > 0 & subtotal_gsf != 0):
+        purchase_loc = "Jita"
+    else:
+        purchase_loc = "C-J6MT"
 
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
