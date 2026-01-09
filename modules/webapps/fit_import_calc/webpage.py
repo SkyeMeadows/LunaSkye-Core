@@ -56,10 +56,7 @@ async def parse_line(line):
         price_gsf = price_pull_gsf[3]
         subtotal_gsf = price_gsf * qty
     
-    if subtotal_gsf == 0:
-        subtotal_gsf = subtotal_jita
-    if subtotal_jita == 0:
-        subtotal_jita = subtotal_gsf
+    
 
     with open(REPACKAGED_VOLUME, 'r') as file:
         volume_data = json.load(file)
@@ -90,7 +87,10 @@ async def parse_line(line):
 
     import_cost = (price_jita * qty) + (volume * 1200)
 
-
+    if subtotal_gsf == 0:
+        subtotal_gsf = import_cost
+    if subtotal_jita == 0:
+        subtotal_jita = subtotal_gsf
 
     if subtotal_gsf != 0:
         markup = subtotal_gsf - import_cost
