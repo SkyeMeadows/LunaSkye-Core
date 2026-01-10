@@ -72,8 +72,10 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     sorted_prices = sorted(all_prices)
     n = len(sorted_prices)
     
-    high_price = sorted_prices[int(n * 0.05)]
-    low_index = max(0, int(n * 0.01))
+    high_index = min(0, int(n * 0.95))
+    high_price = sorted_prices[high_index]
+
+    low_index = max(0, int(n * 0.05)) # Lowest 5% of orders
     low_price = sorted_prices[low_index]
     
     absolute_change = end_price - start_price
@@ -93,8 +95,8 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     ### for {type_name} in the past {days} days:
     Start Price: {summary['start_price']:,} ISK
     End Price: {summary['end_price']:,} ISK
-    High Price: {summary['highest_price']:,} ISK
-    Low Price: {summary['lowest_price']:,} ISK
+    ~~High Price: {summary['highest_price']:,} ISK~~
+    ~~Low Price: {summary['lowest_price']:,} ISK~~
     Change: {summary['absolute_change']:+,} ISK ({summary['change_percent']:+.2f}%)
     """
 
