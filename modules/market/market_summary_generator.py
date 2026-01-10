@@ -20,7 +20,7 @@ log = get_logger("MarketSummaryGenerator")
 parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
 parser.add_argument("--type_id", type=int, required=True)
 parser.add_argument("--market", type=str, default="jita", required=True)
-parser.add_argument("--days", type=float, default=1, required=False)
+parser.add_argument("--days", type=int, default=1, required=False)
 args = parser.parse_args()
 
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
@@ -59,7 +59,10 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
 
     timestamps = sorted(prices_by_timestamp.keys())
 
-    oldest_ts = timestamps[0]
+    num_entires_back = days *24
+    index = max(-len(timestamps), -num_entires_back)
+
+    oldest_ts = timestamps[index]
     start_price = min(prices_by_timestamp[oldest_ts])
     
     newest_ts = timestamps[-1]

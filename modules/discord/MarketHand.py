@@ -193,7 +193,7 @@ async def item_summary(
     interaction: discord.Interaction,
     item_name: str,
     market: Literal["Jita", "C-J6MT (GSF)"],
-    days_history: Optional[float]
+    days_history: int
 ):
     log.debug(f"Command item_summary called with arguments: {item_name}, {market}, {days_history}")
     user_id = interaction.user.id
