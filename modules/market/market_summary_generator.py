@@ -72,12 +72,14 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     sorted_timestamps = sorted(recent_prices.keys())
     sorted_prices = [min(recent_prices[ts]) for ts in sorted_timestamps]
     n = len(sorted_prices)
-    
-    high_index = max(0, int(n * 0.95)) # Min of Highest 5% of orders (lowest 95%)
-    high_price = sorted_prices[high_index]
 
-    low_index = max(0, int(n * 0.05)) # Max of Lowest 5% of orders
-    low_price = sorted_prices[low_index]
+    sorted_prices_by_value = sorted(sorted_prices)
+    
+    high_index = max(0, int(n * 0.95))
+    high_price = sorted_prices_by_value[high_index]
+
+    low_index = max(0, int(n * 0.05))
+    low_price = sorted_prices_by_value[low_index]
     
     absolute_change = end_price - start_price
     percent_change = (absolute_change / start_price * 100) if start_price else 0
