@@ -99,6 +99,15 @@ async def generate_graph(type_id, days, market, type_name):
 
     sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in sell_times]
 
+    if sell_dt:
+        oldest = sell_dt[0]
+        most_recent = sell_dt[-1]
+        delta = most_recent - oldest
+        actual_days = delta.total_seconds() / 86400
+        display_days = round(min(days, actual_days),1)
+    else:
+        display_days = 0
+
     plt.style.use("dark_background")
 
     fig, (ax1) = plt.subplots(1, 1, figsize=(16,10), sharex=True, constrained_layout=True)
@@ -106,11 +115,12 @@ async def generate_graph(type_id, days, market, type_name):
     ax1.plot(sell_dt, sell_prices, color="green", linestyle='--', marker='o', label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
     #Doing Averages
-    if len(sell_prices) > 24:
-        sell_ma = pd.Series(sell_prices).rolling(window=24, min_periods=1).mean()
-        ax1.plot(sell_dt, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
+    if actual_days > 1:
+        df = pd.DataFrame({'price': sell_prices}, index=sell_dt)
+        sell_ma = df['price'].rolling('24h', min_periods=1).mean()
+        ax1.plot(df.index, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
     
-    ax1.set_title(f"{market} chart for {type_name} - Past {days} days")
+    ax1.set_title(f"{market} chart for {type_name} - Past {display_days} days")
     ax1.set_ylabel("Price (ISK)")
     ax1.legend()
 
@@ -128,7 +138,7 @@ async def generate_graph(type_id, days, market, type_name):
 
     os.makedirs(GRAPHS_TEMP_DIR, exist_ok=True)
 
-    filepath =f"{GRAPHS_TEMP_DIR}/{market}_market_{type_name}_past_{days}d.png"
+    filepath =f"{GRAPHS_TEMP_DIR}/{market}_market_{type_name}_past_{display_days}d.png"
 
     fig.savefig(filepath, dpi=200, bbox_inches='tight')
     log.info(f"Saved figure to {filepath}")
