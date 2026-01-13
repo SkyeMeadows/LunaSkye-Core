@@ -1,9 +1,8 @@
 import aiosqlite
-import csv
 import pandas as pd
-from io import StringIO
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import ITEM_IDS_VOLUME_FILE
+from modules.utils.ore_controller import load_reprocess_ids
 
 log = get_logger("DataControl")
 
@@ -67,7 +66,13 @@ async def save_ore_orders(database_path, ore_price, fetched_time, type_id):
 
     async with aiosqlite.connect(database_path) as db:
         await db.executemany("""
-            INSERT INTO market_orders (timestamp, type_id, volume_remain, price, is_buy_order)
+            INSERT INTO market_orders (
+                timestamp, 
+                type_id, 
+                volume_remain, 
+                price, 
+                is_buy_order
+            )
             VALUES (?, ?, ?, ?, ?)
         """, rows_to_insert)
         await db.commit()
@@ -121,3 +126,44 @@ async def get_volume(type_id):
     df = pd.read_csv(ITEM_IDS_VOLUME_FILE)
     result = df[df['typeID'] == type_id]['volume']
     return float(result.iloc[0])
+
+async def save_mineral_price(database_path, orders, fetched_time):
+    rows_to_insert = []
+    reprocess_ids = await load_reprocess_ids()
+    log.debug(f"Loaded reprocess_ids as {reprocess_ids}")
+    for order in orders:
+        type_id = order["type_id"]
+        if type_id in reprocess_ids:
+            log.debug(f"ID {type_id} is a reprocessed material, handling as such.")
+            rows_to_insert.append((
+                fetched_time,
+                type_id,
+                order["price"]
+            ))
+
+    async with aiosqlite.connect(database_path) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mineral_prices (
+                timestamp INTEGER NOT NULL,
+                type_id INTEGER NOT NULL,
+                price REAL NOT NULL
+            )
+        """)
+        await db.executemany("""
+            INSERT INTO mineral_prices (
+                timestamp,
+                type_id, 
+                price
+            )
+            VALUES (?, ?, ?)
+        """, rows_to_insert)
+        await db.commit()
+        await db.close()
+            
+async def clear_mineral_table(database_path):
+    async with aiosqlite.connect(database_path) as db:
+        await db.execute("""
+        DELETE FROM mineral_prices;
+        """)
+        await db.commit()
+        await db.close()

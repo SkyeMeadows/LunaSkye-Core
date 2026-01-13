@@ -10,7 +10,7 @@ import requests
 import asyncio
 from modules.esi.session_control import save_cache_time, load_cache_time, load_esi_token, get_authenticated_session
 from modules.utils.init_db import init_db
-from modules.esi.data_control import save_orders, save_ore_orders
+from modules.esi.data_control import save_orders, save_ore_orders, clear_mineral_table, save_mineral_price
 from modules.utils.ore_controller import load_ore_list, calculate_ore_value
 
 log = get_logger("GSFRequestor")
@@ -22,7 +22,7 @@ CLIENT_SECRET = os.getenv("ESI_CLIENT_SECRET")
 TOKEN_URL = os.getenv("ESI_TOKEN_URL")
 last_esi_status_check_time = 0
 cached_status = None
-OVERRIDE_MAX_ESI_PAGES = 0
+OVERRIDE_MAX_ESI_PAGES = int(os.getenv("OVERRIDE_MAX_ESI_PAGES"))
 
 gsf_structure_id = 1049588174021 # C-J Keepstar
 
@@ -148,11 +148,15 @@ async def main():
     gsf_orders, last_fetch_time = await fetch_gsf_orders(token)
     await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
 
+    await save_mineral_price(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
+
     ore_list = await load_ore_list()
 
     for ore_id in ore_list:
         ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_GSF)
         await save_ore_orders(MARKET_DB_FILE_GSF, ore_price, last_fetch_time, ore_id)
+
+    await clear_mineral_table(MARKET_DB_FILE_GSF)
 
     exit(0)
 

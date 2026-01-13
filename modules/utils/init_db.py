@@ -11,4 +11,12 @@ async def init_db(DB_PATH):
                 is_buy_order BOOLEAN NOT NULL
             )
         """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mineral_prices (
+                timestamp INTEGER NOT NULL,
+                type_id INTEGER NOT NULL,
+                price REAL NOT NULL
+            )
+        """)
         await db.commit()
