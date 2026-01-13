@@ -5,13 +5,13 @@ from modules.utils.paths import ITEM_IDS_FILE
 @lru_cache(maxsize=1)
 def _id_to_name_map() -> dict[int, str]:
     df = pd.read_csv(ITEM_IDS_FILE)
-    df.columns = ["typeID", "groupID", "typeName", "_"]  # drop duplicate
+    df.columns = ["typeID", "typeName"]  # drop duplicate
     return pd.Series(df.typeName.values, index=df.typeID).to_dict()
 
 @lru_cache(maxsize=1)
 def _name_to_id_map() -> dict[str, int]:
     df = pd.read_csv(ITEM_IDS_FILE)
-    df.columns = ["typeID", "groupID", "typeName", "_"]
+    df.columns = ["typeID", "typeName"]
     return pd.Series(df.typeID.values, index=df.typeName).to_dict()
 
 async def map_id_to_name(type_id: int) -> str | None:
