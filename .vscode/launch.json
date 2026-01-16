@@ -69,6 +69,12 @@
                 "3"
             ]
         },
+        {
+            "name": "Market Requestor",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "modules.esi.market_requestor",
+        },
         
     ]
 }

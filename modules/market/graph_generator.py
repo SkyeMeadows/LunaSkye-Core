@@ -145,11 +145,6 @@ async def generate_graph(type_id, days, market, type_name):
 
     return filepath
 
-
-
-        
-
-
 async def main():
     type_id = args.type_id
     days = args.days if args.days > 0 else 1

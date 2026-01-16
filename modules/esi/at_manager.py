@@ -33,16 +33,23 @@ async def read_token():
     
 
 def save_token(token):
+    log.debug(f"Running non-async save_token")
     try:
+        log.debug(f"Attempting to get asyncio event loop")
         loop = asyncio.get_event_loop()
     except RuntimeError:
+        log.debug(f"Got Runtime Error, attempting to create event loop")
         loop = asyncio.new_event_loop()
+        log.debug(f"Attempting to set event loop to new event loop")
         asyncio.set_event_loop(loop)
 
     if loop.is_running():
+        log.debug(f"Event loop is running, creating task of async_save_token")
         task = loop.create_task(async_save_token(token))
+        log.debug(f"Task created successfully.")
         task.add_done_callback(lambda t: log.error(f"Save token task crashed: {t.exception()}") if t.exception() else None)
     else:
+        log.debug(f"Event loop is not running. attempting to run_until_complete for async_save_token")
         loop.run_until_complete(async_save_token(token))
 
 

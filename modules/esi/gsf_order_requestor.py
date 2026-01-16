@@ -56,6 +56,7 @@ async def fetch_gsf_orders(token):
  
         try:
             response = requests.get(url, headers=headers, timeout=10)
+            log.debug(f"Response code from page {on_page}: {response.status_code}")
 
             allowed_errors_left = int(response.headers.get("X-ESI-Error-Limit-Remain", 0))
             log.debug(f"ESI Allowed Errors Remaining: {allowed_errors_left}")
@@ -72,7 +73,6 @@ async def fetch_gsf_orders(token):
             log.debug(f"Server time header: {server_time}")
 
             expires_dt = parsedate_to_datetime(response.headers.get("expires", ""))
-            server_dt  = parsedate_to_datetime(response.headers.get("Date", ""))
 
             last_fetch_time = datetime.now(UTC)
             nextAllowedFetch = expires_dt + timedelta(seconds=3)
@@ -144,6 +144,7 @@ async def main():
     log.info("Starting GSF Requestor")
 
     await init_db(MARKET_DB_FILE_GSF)
+    
     token = await load_esi_token()
     gsf_orders, last_fetch_time = await fetch_gsf_orders(token)
     await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)

@@ -55,6 +55,7 @@ async def fetch_jita_orders(token):
  
         try:
             response = requests.get(url, headers=headers, timeout=10)
+            log.debug(f"Response code from page {on_page}: {response.status_code}")
 
             allowed_errors_left = int(response.headers.get("X-ESI-Error-Limit-Remain", 0))
             log.debug(f"ESI Allowed Errors Remaining: {allowed_errors_left}")
@@ -71,7 +72,6 @@ async def fetch_jita_orders(token):
             log.debug(f"Server time header: {server_time}")
 
             expires_dt = parsedate_to_datetime(response.headers.get("expires", ""))
-            server_dt  = parsedate_to_datetime(response.headers.get("Date", ""))
 
             last_fetch_time = datetime.now(UTC)
             nextAllowedFetch = expires_dt + timedelta(seconds=3)
