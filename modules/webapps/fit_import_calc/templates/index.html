@@ -83,8 +83,12 @@
     <form id="fit-form">
         <textarea name="fitting" rows="15">{{ user_input | e }}</textarea>
         <label>
-            <input type="checkbox" name="include_hull" unchecked>
+            <input type="checkbox" name="include_hull" {% if include_hull %}checked{% endif %}>
             Include Ship Hull
+        </label><br>
+        <label>
+            Number of Copies:
+            <input type="number" name="copies" value="{{ copies | default(1) }}" min="1">
         </label>
         <button type="submit">Calculate</button>
     </form>
@@ -97,9 +101,6 @@
     <div id="totals"></div>
 
     <div id="results"></div>
-
-
-    
 </body>
 </html>
 
@@ -186,16 +187,6 @@ form.addEventListener("submit", async (e) => {
 
         if (done) break;
     }
-
-    // Restore the textarea value and checkbox state after processing
-    textarea.value = savedInput;
-    includeHullCheckbox.checked = savedChecked;
-});
-
-// Existing checkbox change listener for auto-submit
-const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
-includeHullCheckbox.addEventListener('change', () => {
-    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 });
 </script>
 

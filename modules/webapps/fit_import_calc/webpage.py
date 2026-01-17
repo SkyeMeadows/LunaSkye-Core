@@ -165,7 +165,7 @@ async def split_into_blocks(text, include_hull=True):
 
     return blocks
 
-async def parse_input_stream(text, include_hull=True):
+async def parse_input_stream(text, include_hull=True, copies=1):
     blocks = await split_into_blocks(text, include_hull=include_hull)
 
     offset = 0 if include_hull else 1
@@ -262,7 +262,23 @@ async def parse_input_stream(text, include_hull=True):
                 totals["min_price"] += item["min_price"]
 
 
-                
+    if copies > 1:
+        for item_data in item_tracker.values():
+            item_data["qty"] *= copies
+            item_data["subtotal_jita"] *= copies
+            item_data["subtotal_gsf"] *= copies
+            item_data["volume"] *= copies
+            item_data["import_cost"] *= copies
+            item_data["markup"] *= copies
+            item_data["min_price"] *= copies
+
+        totals["qty"] *= copies
+        totals["subtotal_jita"] *= copies
+        totals["subtotal_gsf"] *= copies
+        totals["markup"] *= copies
+        totals["volume"] *= copies
+        totals["import_cost"] *= copies
+        totals["min_price"] *= copies
 
     parsed = {}
     for item_data in item_tracker.values():
@@ -293,33 +309,35 @@ async def parse_input_stream(text, include_hull=True):
 app = Quart(__name__)
 @app.route("/", methods=["GET", "POST"])
 async def index():
-    include_hull = False
+    include_hull = True
+    copies = 1
     user_input = ""
+    parsed = {}
+    totals = {}
     if request.method == "POST":
         form = await request.form
         include_hull = 'include_hull' in form
         user_input = form.get("fitting", "")
+        copies = int(form.get("copies", 1))
         if user_input.strip():
-            parsed = {}
-            totals = {}
-            async for event in parse_input_stream(user_input, include_hull=include_hull):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies):
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
-            return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull)
-    return await render_template("index.html", include_hull=True)
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, user_input=user_input)
 
 @app.route("/stream", methods=["POST"])
 async def stream():
     form = await request.form
     user_input = form.get("fitting", "")
     include_hull = 'include_hull' in form
+    copies = int(form.get("copies", 1))
 
     async def generate():
         try:
             item_count = 0
 
-            async for event in parse_input_stream(user_input, include_hull=include_hull):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies):
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
@@ -335,7 +353,6 @@ async def stream():
                 "message": str(e),
             }
             yield json.dumps(error_event) + "\n"
-    
     
     
     return Response(
