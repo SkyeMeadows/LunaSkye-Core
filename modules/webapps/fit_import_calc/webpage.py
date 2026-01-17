@@ -30,8 +30,14 @@ async def parse_line(line):
     if not line:
         return None
     
-    if "[Empty" in line:
-        log.debug(f"Skipping line containing '[Empty': {line}")
+    if ',' in line:
+        line = line.split(',', 1)[0].strip()
+
+    line = line.replace('[', '')
+    line = line.replace(' /OFFLINE', '')
+    
+    if "Empty" in line:
+        log.debug(f"Skipping line containing Empty Slot: {line}")
         return None
     
     m = qty_re.search(line)
