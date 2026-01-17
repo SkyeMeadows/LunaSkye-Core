@@ -89,6 +89,10 @@
         <label>
             Number of Copies:
             <input type="number" name="copies" value="{{ copies | default(1) }}" min="1">
+        </label><br>
+        <label>
+            Markup Percentage:
+            <input type="number" name="markup_pct" value="{{ markup_pct | default(0) }}" min="0" step="0.1">
         </label>
         <button type="submit">Calculate</button>
     </form>
@@ -207,6 +211,7 @@ function renderResults(finalParsed, finalTotals) {
             <tr><th>Jita Market Price</th><td>${Math.round(finalTotals.subtotal_jita).toLocaleString()}</td></tr>
             <tr><th>C-J6MT Market Price</th><td>${Math.round(finalTotals.subtotal_gsf).toLocaleString()}</td></tr>
             <tr><th>Minimum Obtainable Price</th><td>${Math.round(finalTotals.min_price).toLocaleString()}</td></tr>
+            <tr><th>Marked Up Price (+${finalTotals.markup_pct}%)</th><td>${Math.round(finalTotals.marked_up_price).toLocaleString()}</td></tr>
         </table>
     `;
     }
@@ -222,6 +227,7 @@ function renderResults(finalParsed, finalTotals) {
             <th>C-J6MT Sell Price</th>
             <th>Import Price</th>
             <th>Purchase Location</th>
+            <th>Marked Up Price (+${finalTotals.markup_pct}%)</th>
         </tr>
         `;
 
@@ -235,6 +241,7 @@ function renderResults(finalParsed, finalTotals) {
             <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
             <td>${Math.round(item.import_cost).toLocaleString()}
             <td>${item.purchase_loc}</td>
+            <td>${Math.round(item.marked_up_price).toLocaleString()}</td>
             </tr>
         `;
         }

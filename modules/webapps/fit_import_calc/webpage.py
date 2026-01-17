@@ -132,7 +132,7 @@ async def parse_line(line):
             "volume_per_unit": volume_per_unit,
             "import_cost": import_cost,
             "purchase_loc": purchase_loc,
-            "min_price": min_price}
+            "min_price": min_price,}
 
 async def split_into_blocks(text, include_hull=True):
     text = text.strip("\n")
@@ -165,7 +165,7 @@ async def split_into_blocks(text, include_hull=True):
 
     return blocks
 
-async def parse_input_stream(text, include_hull=True, copies=1):
+async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
     blocks = await split_into_blocks(text, include_hull=include_hull)
 
     offset = 0 if include_hull else 1
@@ -183,6 +183,8 @@ async def parse_input_stream(text, include_hull=True, copies=1):
         "volume": 0.0,
         "import_cost": 0.0,
         "min_price": 0.0,
+        "markup_pct": markup_pct,
+        "marked_up_price": 0.0,
     }
 
     for i, block in enumerate(blocks):
@@ -280,6 +282,12 @@ async def parse_input_stream(text, include_hull=True, copies=1):
         totals["import_cost"] *= copies
         totals["min_price"] *= copies
 
+    markup_factor = 1 + (markup_pct / 100)
+    for item_data in item_tracker.values():
+        item_data["marked_up_price"] = item_data["import_cost"] * markup_factor
+
+    totals["marked_up_price"] = totals["import_cost"] * markup_factor
+
     parsed = {}
     for item_data in item_tracker.values():
         primary_section = item_data["sections"][0]
@@ -293,7 +301,7 @@ async def parse_input_stream(text, include_hull=True, copies=1):
             "subtotal_jita": item_data["subtotal_jita"],
             "price_gsf": item_data["price_gsf"],
             "subtotal_gsf": item_data["subtotal_gsf"],
-            "markup": item_data["markup"],
+            "marked_up_price": item_data["marked_up_price"],
             "volume": item_data["volume"],
             "import_cost": item_data["import_cost"],
             "min_price": item_data["min_price"],
@@ -309,8 +317,9 @@ async def parse_input_stream(text, include_hull=True, copies=1):
 app = Quart(__name__)
 @app.route("/", methods=["GET", "POST"])
 async def index():
-    include_hull = True
+    include_hull = False
     copies = 1
+    markup_pct = 0.0
     user_input = ""
     parsed = {}
     totals = {}
@@ -319,12 +328,13 @@ async def index():
         include_hull = 'include_hull' in form
         user_input = form.get("fitting", "")
         copies = int(form.get("copies", 1))
+        markup_pct = float(form.get("markup_pct", 0.0))
         if user_input.strip():
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
-    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, user_input=user_input)
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, user_input=user_input)
 
 @app.route("/stream", methods=["POST"])
 async def stream():
@@ -332,12 +342,13 @@ async def stream():
     user_input = form.get("fitting", "")
     include_hull = 'include_hull' in form
     copies = int(form.get("copies", 1))
+    markup_pct = float(form.get("markup_pct", 0.0))
 
     async def generate():
         try:
             item_count = 0
 
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 

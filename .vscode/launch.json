@@ -30,18 +30,6 @@
             ]
         },
         {
-            "name": "Jita Orders",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "modules.esi.jita_requestor"
-        },
-        {
-            "name": "C-J Orders",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "modules.esi.gsf_order_requestor"
-        },
-        {
             "name": "Jita Item Summary",
             "type": "debugpy",
             "request": "launch",
@@ -75,6 +63,5 @@
             "request": "launch",
             "module": "modules.esi.market_requestor",
         },
-        
     ]
 }

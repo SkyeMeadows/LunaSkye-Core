@@ -1,35 +1,37 @@
-[Rupture, Rupture Best Alfa PVE]
-Counterbalanced Compact Gyrostabilizer
-Damage Control I
-Fourier Compact Tracking Enhancer
+[Svipul, GSF - SVIPUL - DPS - v25.1]
 Counterbalanced Compact Gyrostabilizer
 Counterbalanced Compact Gyrostabilizer
-
-Enduring Multispectrum Shield Hardener
-50MN Y-T8 Compact Microwarpdrive
-Medium Clarity Ward Enduring Shield Booster
-F-12 Enduring Tracking Computer
-
-720mm 'Scout' Artillery I
-720mm 'Scout' Artillery I
-720mm 'Scout' Artillery I
-720mm 'Scout' Artillery I
-Arbalest Compact Light Missile Launcher
-
-Medium EM Shield Reinforcer I
-Medium Thermal Shield Reinforcer I
-Medium Semiconductor Memory Cell I
-
-
-Infiltrator I x3
-
-
-Domination Nuclear M x42
-Republic Fleet EMP M x708
-Tracking Speed Script x1
-Guristas Mjolnir Light Missile x379
-Arch Angel Carbonized Lead M x1124
-Arch Angel Nuclear M x1000
-Salvager I x1
-Data Analyzer I x1
-Mobile Depot x1
+Micro Auxiliary Power Core II
+Overdrive Injector System II
+ 
+5MN Y-T8 Compact Microwarpdrive
+Initiated Compact Warp Scrambler
+Medium Shield Extender II
+Multispectrum Shield Hardener II
+ 
+280mm Howitzer Artillery II
+280mm Howitzer Artillery II
+280mm Howitzer Artillery II
+280mm Howitzer Artillery II
+Defender Launcher I
+ 
+Small Core Defense Field Extender I
+Small Core Defense Field Extender I
+Small Core Defense Field Extender I
+ 
+ 
+ 
+ 
+Republic Fleet Phased Plasma S x800
+Optimal Range Script x1
+Republic Fleet Carbonized Lead S x400
+Republic Fleet EMP S x880
+Republic Fleet Proton S x400
+Defender Missile I x110
+Republic Fleet Depleted Uranium S x800
+Republic Fleet Titanium Sabot S x800
+Quake S x800
+Tremor S x800
+Nanite Repair Paste x50
+Optical Compact Tracking Computer x1
+ 
