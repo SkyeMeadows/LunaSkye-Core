@@ -114,22 +114,24 @@ const totalsDiv = document.getElementById("totals");
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
+    // Save the current textarea value and checkbox state before processing
+    const textarea = document.querySelector('textarea[name="fitting"]');
+    const savedInput = textarea.value;
+    const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
+    const savedChecked = includeHullCheckbox.checked;
+
     // Reset UI
     progressContainer.style.display = "block";
     progressBar.value = 0;
     statusText.textContent = "Starting...";
     resultsDiv.innerHTML = "";
+    totalsDiv.innerHTML = "";  // Clear totals as well for consistency
 
     const formData = new FormData(form);
 
     const response = await fetch("/stream", {
         method: "POST",
         body: formData
-    });
-
-    const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
-    includeHullCheckbox.addEventListener('change', () => {
-        form.dispatchEvent(new Event('submit'));
     });
 
     const reader = response.body.getReader();
@@ -184,6 +186,16 @@ form.addEventListener("submit", async (e) => {
 
         if (done) break;
     }
+
+    // Restore the textarea value and checkbox state after processing
+    textarea.value = savedInput;
+    includeHullCheckbox.checked = savedChecked;
+});
+
+// Existing checkbox change listener for auto-submit
+const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
+includeHullCheckbox.addEventListener('change', () => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 });
 </script>
 
