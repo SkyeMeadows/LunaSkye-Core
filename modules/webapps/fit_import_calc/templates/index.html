@@ -2,80 +2,7 @@
 <html>
 <head>
     <title>Fitting Parser</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: black;
-            color: white;
-        }
-
-        textarea {
-            width: 100%;
-            height: 200px;
-            background-color: #222;
-            color: white;
-            border: 1px solid #555;
-        }
-
-        .section {
-            margin-top: 20px;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        th, td {
-            border: 1px solid #555;
-            padding: 6px 10px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #333;
-            color: white;
-        }
-
-        td {
-            background-color: #222;
-        }
-
-        button {
-            background-color: #444;
-            color: white;
-            border: 1px solid #555;
-            padding: 8px 12px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #555;
-        }
-
-        input[type="checkbox"] {
-            accent-color: #777;
-        }
-
-        progress {
-            background-color: #333;
-            border: 1px solid #555;
-            width: 100%;
-            height: 20px;
-        }
-
-        #progresss-container {
-            background-color: #222;
-            padding: 10px;
-            border: 1px solid #555;
-        }
-
-        #status-text {
-            color: white;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <h1>Fitting Parser</h1>
@@ -102,153 +29,52 @@
         <div id="status-text"></div>
     </div>
 
-    <div id="totals"></div>
+    <div id="totals">
+        {% if totals %}
+            <h2>Totals</h2>
+            <table>
+                <tr><th>Total Volume</th><td>{{ totals.volume | int | string | replace('.', ',') }}</td></tr>  <!-- Adjust formatting if needed -->
+                <tr><th>Jita Market Price</th><td>{{ totals.subtotal_jita | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>C-J6MT Market Price</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Minimum Obtainable Price</th><td>{{ totals.min_price | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Marked Up Price (+{{ totals.markup_pct }}%)</th><td>{{ totals.marked_up_price | round | int | string | replace('.', ',') }}</td></tr>
+            </table>
+        {% endif %}
+    </div>
 
-    <div id="results"></div>
+    <div id="results">
+        {% if parsed %}
+            <h2>Parsed Fitting</h2>
+            {% for section, items in parsed.items() %}
+                <h3>{{ section }}</h3>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Qty</th>
+                        <th>Volume</th>
+                        <th>Jita Sell Price</th>
+                        <th>C-J6MT Sell Price</th>
+                        <th>Import Price</th>
+                        <th>Purchase Location</th>
+                        <th>Marked Up Price (+{{ totals.markup_pct }}%)</th>
+                    </tr>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.qty | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.volume | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.subtotal_jita | round | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.subtotal_gsf | round | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.import_cost | round | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.purchase_loc }}</td>
+                            <td>{{ item.marked_up_price | round | int | string | replace('.', ',') }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
 </body>
 </html>
-
-<script>
-const form = document.getElementById("fit-form");
-const progressContainer = document.getElementById("progress-container");
-const progressBar = document.getElementById("progress-bar");
-const statusText = document.getElementById("status-text");
-const resultsDiv = document.getElementById("results");
-const totalsDiv = document.getElementById("totals");
-
-form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    // Save the current textarea value and checkbox state before processing
-    const textarea = document.querySelector('textarea[name="fitting"]');
-    const savedInput = textarea.value;
-    const includeHullCheckbox = document.querySelector('input[name="include_hull"]');
-    const savedChecked = includeHullCheckbox.checked;
-
-    // Reset UI
-    progressContainer.style.display = "block";
-    progressBar.value = 0;
-    statusText.textContent = "Starting...";
-    resultsDiv.innerHTML = "";
-    totalsDiv.innerHTML = "";  // Clear totals as well for consistency
-
-    const formData = new FormData(form);
-
-    const response = await fetch("/stream", {
-        method: "POST",
-        body: formData
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    let buffer = "";
-
-    while (true) {
-        const { value, done } = await reader.read();
-        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-
-        for (const line of lines) {
-            if (!line.trim()) continue;
-            const msg = JSON.parse(line);
-
-            if (msg.type === "progress") {
-                progressBar.value = (msg.current / msg.total) * 100;
-                statusText.textContent = `Processing ${msg.current} / ${msg.total}: ${msg.item}`;
-            }
-
-            else if (msg.type === "done") {
-                console.log("DONE event received:", msg);
-                progressBar.value = 100;
-                statusText.textContent = "Done!";
-                renderResults(msg.parsed, msg.totals);
-            }
-
-            else if (msg.type === "error") {
-                statusText.textContent = `Error: ${msg.message}`;
-                console.error(msg.message);
-            }
-        }
-
-        if (done && buffer.trim()) {
-            const msg = JSON.parse(buffer);
-            if (msg.type === "done") {
-                progressBar.value = 100;
-                statusText.textContent = "Done!";
-                finalParsed = msg.parsed;
-                finalTotals = msg.totals;
-                console.log("Sending parsed as", finalParsed)
-                console.log("Sending totals as", finalTotals)
-                renderResults(finalParsed, finalTotals);
-            }
-            else if (msg.type === "error") {
-                statusText.textContent = `Error: ${msg.message}`;
-                console.error(msg.message);
-            }
-        }
-
-        if (done) break;
-    }
-});
-</script>
-
-<script>
-function renderResults(finalParsed, finalTotals) {
-    const totalsDiv = document.getElementById("totals");
-
-    console.log("renderResults called with", finalParsed);
-    console.log("renderResults totals:", finalTotals);
-
-    let html = "<h2>Parsed Fitting</h2>";
-
-    if (finalTotals) {
-        totalsDiv.innerHTML = `
-        <h2>Totals</h2>
-        <table>
-            <tr><th>Total Volume</th><td>${finalTotals.volume.toLocaleString()}</td></tr>
-            <tr><th>Jita Market Price</th><td>${Math.round(finalTotals.subtotal_jita).toLocaleString()}</td></tr>
-            <tr><th>C-J6MT Market Price</th><td>${Math.round(finalTotals.subtotal_gsf).toLocaleString()}</td></tr>
-            <tr><th>Minimum Obtainable Price</th><td>${Math.round(finalTotals.min_price).toLocaleString()}</td></tr>
-            <tr><th>Marked Up Price (+${finalTotals.markup_pct}%)</th><td>${Math.round(finalTotals.marked_up_price).toLocaleString()}</td></tr>
-        </table>
-    `;
-    }
-
-    for (const [section, items] of Object.entries(finalParsed)) {
-        html += `<h3>${section}</h3><table>`;
-        html += `
-        <tr>
-            <th>Name</th>
-            <th>Qty</th>
-            <th>Volume</th>
-            <th>Jita Sell Price</th>
-            <th>C-J6MT Sell Price</th>
-            <th>Import Price</th>
-            <th>Purchase Location</th>
-            <th>Marked Up Price (+${finalTotals.markup_pct}%)</th>
-        </tr>
-        `;
-
-        for (const item of items) {
-        html += `
-            <tr>
-            <td>${item.name}</td>
-            <td>${item.qty.toLocaleString()}</td>
-            <td>${item.volume.toLocaleString()}</td>
-            <td>${Math.round(item.subtotal_jita).toLocaleString()}</td>
-            <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
-            <td>${Math.round(item.import_cost).toLocaleString()}
-            <td>${item.purchase_loc}</td>
-            <td>${Math.round(item.marked_up_price).toLocaleString()}</td>
-            </tr>
-        `;
-        }
-
-        html += "</table>";
-    }
-
-    resultsDiv.innerHTML = html;
-}
-</script>

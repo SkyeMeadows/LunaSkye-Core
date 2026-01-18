@@ -1,0 +1,72 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background-color: black;
+    color: white;
+}
+
+textarea {
+    width: 100%;
+    height: 200px;
+    background-color: #222;
+    color: white;
+    border: 1px solid #555;
+}
+
+.section {
+    margin-top: 20px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 10px;
+}
+
+th, td {
+    border: 1px solid #555;
+    padding: 6px 10px;
+    text-align: left;
+}
+
+th {
+    background-color: #333;
+    color: white;
+}
+
+td {
+    background-color: #222;
+}
+
+button {
+    background-color: #444;
+    color: white;
+    border: 1px solid #555;
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+input[type="checkbox"] {
+    accent-color: #777;
+}
+
+progress {
+    background-color: #333;
+    border: 1px solid #555;
+    width: 100%;
+    height: 20px;
+}
+
+#progresss-container {
+    background-color: #222;
+    padding: 10px;
+    border: 1px solid #555;
+}
+
+#status-text {
+    color: white;
+}
