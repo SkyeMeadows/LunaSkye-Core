@@ -1,6 +1,5 @@
 *.log*
 /.env
-/ESI-Interface/token.json
 /modules/esi/token.json
 *.db*
 *.pyc
