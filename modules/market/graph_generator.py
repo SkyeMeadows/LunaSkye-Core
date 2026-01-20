@@ -24,13 +24,7 @@ log = get_logger("GraphGenerator")
 
 mpl.set_loglevel("warning")
 
-# === Parse CLI arguments ===
-log.debug("Parsing Arguments")
-parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
-parser.add_argument("--type_id", type=int, required=True)
-parser.add_argument("--market", type=str, default="jita", help="Market to pull data from")
-parser.add_argument("--days", type=float, default=1, help="Number of days of data to include")
-args = parser.parse_args()
+
 
 
 
@@ -108,6 +102,9 @@ async def generate_graph(type_id, days, market, type_name):
     else:
         display_days = 0
 
+    if display_days == 0:
+        return None, display_days, type_name
+
     plt.style.use("dark_background")
 
     fig, (ax1) = plt.subplots(1, 1, figsize=(16,10), sharex=True, constrained_layout=True)
@@ -143,7 +140,7 @@ async def generate_graph(type_id, days, market, type_name):
     fig.savefig(filepath, dpi=200, bbox_inches='tight')
     log.info(f"Saved figure to {filepath}")
 
-    return filepath
+    return filepath, display_days, type_name
 
 async def main():
     type_id = args.type_id
@@ -152,10 +149,17 @@ async def main():
     log.debug(f"Market argument identified as: {market}")
     type_name = await match_item_name(type_id)
 
-    filepath = await generate_graph(type_id, days, market, type_name)
-
+    filepath, display_days, type_name = await generate_graph(type_id, days, market, type_name)
     print(str(filepath))
     return 0
 
 if __name__ == "__main__":
+    # === Parse CLI arguments ===
+    log.debug("Parsing Arguments")
+    parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
+    parser.add_argument("--type_id", type=int, required=True)
+    parser.add_argument("--market", type=str, default="jita", help="Market to pull data from")
+    parser.add_argument("--days", type=float, default=1, help="Number of days of data to include")
+    args = parser.parse_args()
+
     asyncio.run(main())

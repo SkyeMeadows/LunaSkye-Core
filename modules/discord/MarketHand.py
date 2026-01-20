@@ -13,6 +13,7 @@ import time
 import sys
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR
+from modules.market.graph_generator import match_item_name, generate_graph
 
 
 log = get_logger("MarketHandBot")
@@ -137,49 +138,30 @@ async def get_graph(
             return
 
         item_id = name_to_id[item_key]
-        safe_item_name = user_input_name.strip().replace(" ", "_").replace("/", "_")
         
-        command = [
-            sys.executable,
-            str(GRAPH_GENERATOR),
-            "--type_id", str(item_id),
-            "--market", str(market)
-        ]
+        type_name = await match_item_name(item_id)
+        filepath, display_days, resolved_type_name = await generate_graph(item_id, days_history, market.lower(), type_name)
 
-        if days_history:
-            command.append("--days")
-            command.append(str(days_history))
-
-        log.debug(f"Running subprocess: {' '.join(command)}")
-
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
-        log.debug(result.stdout)
-        log.error(result.stderr)
-
-        if result.returncode == 0:
-            file_path = result.stdout.strip()
-
-        if result.returncode != 0:
+        if filepath is None:
             await interaction.followup.send(
-                f" Graph could not be generated for **{item_name}**.",
+                f"No data available for **{resolved_type_name}** in the past {days_history} days in {market}.",
                 ephemeral=True
             )
             return
 
-
-        if not os.path.isfile(file_path):
-            await interaction.followup.send(
-                f" Expected graph file not found: `{file_path}`",
-                ephemeral=True
-            )
-            return
-        
         await interaction.followup.send(
             content=(
-                f"Generated price graph for **{item_name}** over the last {days_history} days:"
+                f"Generated price graph for **{resolved_type_name}** over the last {display_days} days in {market}:"
             ),
-            file=discord.File(file_path)
+            file=discord.File(filepath)
         )
+
+        if not os.path.isfile(filepath):
+            await interaction.followup.send(
+                f" Expected graph file not found: `{filepath}`",
+                ephemeral=True
+            )
+            return
 
     try:
         await asyncio.wait_for(inner(), timeout=30)
