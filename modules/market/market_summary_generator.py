@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import asyncio
 from collections import defaultdict
+from datetime import datetime, timezone
 
 if __name__ == "__main__":
     # Dynamically add project root to sys.path
@@ -15,13 +16,6 @@ from modules.esi.data_control import query_db_days
 from modules.utils.paths import MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ITEM_IDS_FILE
 
 log = get_logger("MarketSummaryGenerator")
-
-# === Parse CLI arguments ===
-parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
-parser.add_argument("--type_id", type=int, required=True)
-parser.add_argument("--market", type=str, default="jita", required=True)
-parser.add_argument("--days", type=int, default=1, required=False)
-args = parser.parse_args()
 
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 
@@ -39,38 +33,59 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
         log.debug(f"Market recognized as Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
         log.debug(f"Market file located at {MARKET_DB}")
-    if market == "c-j6mt (gsf)":
+    elif market == "c-j6mt (gsf)":
         log.debug(f"Market recognized as C-J")
         MARKET_DB = MARKET_DB_FILE_GSF
         log.debug(f"Market file located at {MARKET_DB}")
-    elif market != ("jita" or "c-j6mt (gsf)"):
+    else:
         log.error(f"Market {market} not recognized, defaulting to Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
         log.debug(f"Market file located at {MARKET_DB}")
 
+    sell_by_time = defaultdict(lambda: float('inf'))
+
     rows = await query_db_days(type_id, MARKET_DB, days)
 
-    prices_by_timestamp = defaultdict(list)
-
     for row in rows:
-        ts = row['timestamp']
-        price = row['price']
-        prices_by_timestamp[ts].append(price)
+        iso_ts = row["timestamp"]
+        ts = pd.to_datetime(iso_ts)
+        unix_timestamp = int(ts.timestamp())
+        sell_by_time[unix_timestamp] = min(sell_by_time[unix_timestamp], row["price"])
 
-    timestamps = sorted(prices_by_timestamp.keys())
+    sell_times   = sorted(sell_by_time.keys())
+    sell_prices  = [sell_by_time[t] for t in sell_times]
 
-    num_entires_back = days *24
-    index = max(-len(timestamps), -num_entires_back)
+    sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in sell_times]
 
-    oldest_ts = timestamps[index]
-    start_price = min(prices_by_timestamp[oldest_ts])
+    dt_price_pairs = list(zip(sell_dt, sell_prices))
+    dt_price_pairs.sort(key=lambda pair: pair[0])
+
+    sorted_dt, sorted_prices = zip(*dt_price_pairs)
+
+    if sell_dt:
+        oldest = sell_dt[0]
+        most_recent = sell_dt[-1]
+        delta = most_recent - oldest
+        actual_days = delta.total_seconds() / 86400
+        display_days = round(min(days, actual_days),1)
+    else:
+        display_days = 0
+
+    if display_days == 0:
+        return None, display_days, type_name
+
+    num_entries_back = days * 24
+    index = max(-len(sell_times), -num_entries_back)
+
+    oldest_ts = sell_times[index]
+    start_price = sell_by_time[oldest_ts]
     
-    newest_ts = timestamps[-1]
-    end_price = min(prices_by_timestamp[newest_ts])
+    newest_ts = sell_times[-1]
+    end_price = sell_by_time[newest_ts]
     
-    recent_prices = {ts: prices for ts, prices in prices_by_timestamp.items() if ts >= oldest_ts} 
+    recent_prices = {ts: prices for ts, prices in sell_by_time.items() if ts >= oldest_ts} 
     sorted_timestamps = sorted(recent_prices.keys())
-    sorted_prices = [min(recent_prices[ts]) for ts in sorted_timestamps]
+    sorted_prices = [recent_prices[ts] for ts in sorted_timestamps]
     n = len(sorted_prices)
 
     sorted_prices_by_value = sorted(sorted_prices)
@@ -95,7 +110,7 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
 
     summary_text = f"""
     ## {market.upper()} Price Summary
-    ### for {type_name} in the past {days} days:
+    ### for {type_name} in the past {display_days} days:
     Start Price: {summary['start_price']:,} ISK
     End Price: {summary['end_price']:,} ISK
     High Price: {summary['highest_price']:,} ISK
@@ -103,7 +118,7 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     Change: {summary['absolute_change']:+,} ISK ({summary['change_percent']:+.2f}%)
     """
 
-    return summary_text
+    return summary_text, display_days, type_name
 
 
 async def main():
@@ -113,10 +128,17 @@ async def main():
     log.debug(f"Market argument identified as: {market}")
     type_name = await match_item_name(type_id)
 
-    summary = await create_summary(type_id, days, market, type_name)
+    summary, display_days, type_name = await create_summary(type_id, days, market, type_name)
     
     print(str(summary))
     return 0
 
 if __name__ == "__main__":
+    # === Parse CLI arguments ===
+    parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
+    parser.add_argument("--type_id", type=int, required=True)
+    parser.add_argument("--market", type=str, default="jita", required=True)
+    parser.add_argument("--days", type=int, default=1, required=False)
+    args = parser.parse_args()
+
     asyncio.run(main())
