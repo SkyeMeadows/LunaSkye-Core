@@ -22,6 +22,10 @@ MARKET_DIR = MODULES_DIR / "market"
 # Subdirectories (logs)
 
 
+# Subdirectories (utils)
+ID_ICONS_DIR = UTILS_DIR / "images"
+
+
 # Subdirectories (webapps)
 ANOM_PARSER_DIR = WEBAPPS_DIR / "anom_parser"
 FIT_IMPORT_CALC_DIR = WEBAPPS_DIR / "fit_import_calc"

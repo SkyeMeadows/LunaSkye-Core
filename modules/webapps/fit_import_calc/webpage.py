@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
-from modules.utils.id_mapping import map_id_to_name, map_name_to_id
+from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
+from modules.esi.image_server import get_image
 
 log = get_logger("FittingImportCalc-Web")
 
@@ -117,6 +118,8 @@ async def parse_line(line):
     else:
         purchase_loc = "C-J6MT"
 
+    icon = f"https://images.evetech.net/types/{item_id}/icon?size=64" if item_id else ""
+
     log.debug(f"Got price for JITA: {price_jita} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_jita}")
     log.debug(f"Got price for GSF: {price_gsf} for {item_id} ({name}) with a quantity of {qty} and a subtotal of {subtotal_gsf}")
 
@@ -132,7 +135,9 @@ async def parse_line(line):
             "volume_per_unit": volume_per_unit,
             "import_cost": import_cost,
             "purchase_loc": purchase_loc,
-            "min_price": min_price,}
+            "min_price": min_price,
+            "icon": icon,
+            }
 
 async def split_into_blocks(text, include_hull=True):
     text = text.strip("\n")
@@ -192,15 +197,20 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         section = SECTION_NAMES[section_index] if section_index < len(SECTION_NAMES) else f"extra_{section_index - len(SECTION_NAMES) + 1}"
         
         for line in block:
+            log.debug(f"Parsing line: {line}")
             item = await parse_line(line)
+            log.debug(f"Parsed line as {item}")
             processed += 1
+            log.debug(f"Added 1 to processed")
             yield {
                 "type": "progress",
                 "current": processed,
                 "total": total_items,
                 "item": line.strip(),
-                "section": section
+                "section": section,
+                "icon": item.get("icon", "") if item else ""
             }
+            log.debug(f"Yielded data for item")
 
             if item and item["id"] is not None:  
                 item_id = item["id"]
@@ -253,6 +263,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
                         "min_price": item["min_price"],
                         "purchase_loc": item["purchase_loc"],
                         "sections": [section],
+                        "icon": item["icon"],
                     }
 
                 totals["qty"] += qty
@@ -262,6 +273,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
                 totals["subtotal_jita"] += item["subtotal_jita"]
                 totals["subtotal_gsf"] += item["subtotal_gsf"]
                 totals["min_price"] += item["min_price"]
+            
 
 
     if copies > 1:
@@ -288,6 +300,17 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
 
     totals["marked_up_price"] = totals["min_price"] * markup_factor
 
+    buy_lists = {"JITA": [], "C-J": []}
+    for item_data in item_tracker.values():
+        market = "JITA" if item_data["purchase_loc"] == "Jita" else "C-J"
+        buy_lists[market].append({
+            "name": item_data["name"],
+            "qty": item_data["qty"]
+        })
+
+    for market in buy_lists:
+        buy_lists[market].sort(key=lambda x: x["name"].lower())
+
     parsed = {}
     for item_data in item_tracker.values():
         primary_section = item_data["sections"][0]
@@ -306,12 +329,15 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
             "import_cost": item_data["import_cost"],
             "min_price": item_data["min_price"],
             "purchase_loc": item_data["purchase_loc"],
+            "icon": item_data["icon"]
         })
 
+    log.debug(f"Final buy_lists before yield: {buy_lists}")
     yield {
         "type": "done",
         "parsed": parsed,
         "totals": totals,
+        "buy_lists": buy_lists
     }
 
 app = Quart(__name__)
@@ -323,6 +349,7 @@ async def index():
     user_input = ""
     parsed = {}
     totals = {}
+    buy_lists = {"JITA": [], "C-J": []}
     if request.method == "POST":
         form = await request.form
         include_hull = 'include_hull' in form
@@ -334,7 +361,8 @@ async def index():
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
-    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, user_input=user_input)
+                    buy_lists = event.get("buy_lists", {"JITA": [], "C-J": []})
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, user_input=user_input, buy_lists=buy_lists)
 
 @app.route("/stream", methods=["POST"])
 async def stream():
