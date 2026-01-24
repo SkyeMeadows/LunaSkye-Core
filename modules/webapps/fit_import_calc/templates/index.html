@@ -33,7 +33,7 @@
         {% if totals %}
             <h2>Totals</h2>
             <table>
-                <tr><th>Total Volume</th><td>{{ totals.volume | int | string | replace('.', ',') }}</td></tr>  <!-- Adjust formatting if needed -->
+                <tr><th>Total Volume</th><td>{{ totals.volume | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Jita Market Price</th><td>{{ totals.subtotal_jita | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>C-J6MT Market Price</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Minimum Obtainable Price</th><td>{{ totals.min_price | round | int | string | replace('.', ',') }}</td></tr>
@@ -43,7 +43,31 @@
     </div>
 
     <div id="buy-recommendations">
-        <!-- Purchase Recommendations will be rendered here via JavaScript -->
+        {% if buy_lists %}
+        <h2>Purchase Recommendations</h2>
+        <table class="table table-bordered">
+            <thead><tr><th>JITA</th></tr></thead>
+            <tbody>
+                {% set max_len = [buy_lists['JITA']|length] | max %}
+                {% for i in range(max_len) %}
+                    <tr>
+                        <td>{% if buy_lists['JITA'][i] %}{{ buy_lists['JITA'][i].name }} x{{ buy_lists['JITA'][i].qty | thousands }}{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <table class="table table-bordered">
+            <thead><tr><th>C-J</th></tr></thead>
+            <tbody>
+                {% set max_len = [buy_lists['C-J']|length] | max %}
+                {% for i in range(max_len) %}
+                    <tr>
+                        <td>{% if buy_lists['C-J'][i] %}{{ buy_lists['C-J'][i].name }} x{{ buy_lists['C-J'][i].qty | thousands }}{% endif %}</td>                    
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
     </div>
 
     <div id="results">
@@ -53,6 +77,7 @@
                 <h3>{{ section }}</h3>
                 <table>
                     <tr>
+                        <th>Icon</th>
                         <th>Name</th>
                         <th>Qty</th>
                         <th>Volume</th>
@@ -64,6 +89,7 @@
                     </tr>
                     {% for item in items %}
                         <tr>
+                            <td><img src="{{ item.icon }}" alt="{{ item.name }} icon" width="32" height="32"></td>
                             <td>{{ item.name }}</td>
                             <td>{{ item.qty | int | string | replace('.', ',') }}</td>
                             <td>{{ item.volume | int | string | replace('.', ',') }}</td>

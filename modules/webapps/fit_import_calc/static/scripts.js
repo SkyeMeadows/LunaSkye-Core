@@ -93,7 +93,9 @@ function renderResults(parsed, totals, buy_lists) {
 
     // Render Parsed Fitting
     let html = "<h2>Parsed Fitting</h2>";
+    console.log("Checking to see if parsed exists")
     if (parsed) {
+        console.log("parsed does exist")
         for (const [section, items] of Object.entries(parsed)) {
             html += `<h3>${section}</h3><table>`;
             html += `
@@ -110,6 +112,7 @@ function renderResults(parsed, totals, buy_lists) {
                 </tr>`;
 
             for (const item of items) {
+                console.log(item)
                 html += `
                     <tr>
                         <td><img src="${item.icon}" alt="${item.name} icon" width="32" height="32"></td>
@@ -131,25 +134,55 @@ function renderResults(parsed, totals, buy_lists) {
     // Render Buy Recommendations with extra debug logs
     if (buy_lists) {
         console.log("Entering buy recommendations render - buy_lists exists");
-        let buyHtml = '<h2>Purchase Recommendations</h2><table class="table table-bordered"><thead><tr><th>JITA</th><th>C-J</th></tr></thead><tbody>';
+        let buyHtml = `<h2>Purchase Recommendations</h2>
+        <table class="table table-bordered">
+        <thead>
+        <tr>
+        <th>JITA</th>
+        </tr>
+        </thead>
+        <tbody>`;
         const jitaList = buy_lists['JITA'] || [];
-        const cjList = buy_lists['C-J'] || [];
-        const maxLen = Math.max(jitaList.length, cjList.length);
-        for (let i = 0; i < maxLen; i++) {
-            buyHtml += '<tr><td>';
+        const jitaLen = jitaList.length;
+        console.log("jitaLen is", jitaLen)
+        for (let i = 0; i < jitaLen; i++) {
+            buyHtml += '<tr>';
+            // JITA column
+            buyHtml += '<td>';
             if (jitaList[i]) {
                 buyHtml += `${jitaList[i].name} x${jitaList[i].qty.toLocaleString()}`;
             }
-            buyHtml += '</td></tr>';
-            buyHtml += '<tr><td>';
+            buyHtml += '</td>';
+            buyHtml += '</tr>';
+        }
+        buyHtml += '</tbody></table>';
+
+        buyHtml += `<table class="table table-bordered">
+        <thead>
+        <tr>
+        <th>C-J6MT</th>
+        </tr>
+        </thead>
+        <tbody>`;
+
+        const cjList = buy_lists['C-J'] || [];
+        const cjLen = cjList.length;
+        console.log("cjLen is", cjLen)
+        for (let i = 0; i < cjLen; i++) {
+            buyHtml += '<tr>';
+            // C-J column
+            buyHtml += '<td>';
             if (cjList[i]) {
                 buyHtml += `${cjList[i].name} x${cjList[i].qty.toLocaleString()}`;
             }
-            buyHtml += '</td></tr>';
+            buyHtml += '</td>';
+            buyHtml += '</tr>';
         }
+        
         buyHtml += '</tbody></table>';
-        console.log("buyHTML is", buyHtml);
 
+        console.log("buyHTML is", buyHtml);
+    
         if (buyRecDiv) {
             buyRecDiv.innerHTML = buyHtml;
             console.log("Set innerHTML successfully. Current innerHTML:", buyRecDiv.innerHTML);
