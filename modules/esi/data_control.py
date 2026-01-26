@@ -167,3 +167,20 @@ async def clear_mineral_table(database_path):
         """)
         await db.commit()
         await db.close()
+
+async def query_recent_price(type_id, market_db):
+    async with aiosqlite.connect(market_db, timeout=15) as conn:
+        conn.row_factory = aiosqlite.Row
+
+        query = """
+            SELECT timestamp, type_id, volume_remain, price, is_buy_order
+            FROM market_orders
+            WHERE type_id = ?
+            AND is_buy_order = 0
+            ORDER BY timestamp DESC, price ASC
+            LIMIT 1
+        """
+
+        async with conn.execute(query, (type_id,)) as cursor:
+            row = await cursor.fetchone()
+            return row

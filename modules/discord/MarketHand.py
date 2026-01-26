@@ -12,7 +12,7 @@ from datetime import datetime, UTC
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR
+from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
 from modules.market.graph_generator import match_item_name, generate_graph
 
 
@@ -256,6 +256,82 @@ async def item_summary(
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
 
+
+@bot.tree.command(name="check_price", description="Gets the current sell price of an item.")
+async def check_price(
+    interaction: discord.Interaction,
+    item_name: str,
+    market: Literal["Jita", "C-J6MT (GSF)"]
+):
+    log.debug(f"check_price called with arguments {item_name}, {market}")
+    user_id = interaction.user.id
+    now = time.time()
+    log.debug(f"Logged time as {now}")
+
+    if now < cooldowns[user_id]:
+        log.debug(f"Sending cooldown message to user {interaction.user.display_name}")
+        retry_after = cooldowns[user_id] - now
+        await interaction.response.send_message(
+            f"You're on cooldown! Try again in `{retry_after:.1f}` seconds.",
+            ephemeral=True
+        )
+        log.debug("Cooldown message sent")
+        return
+    else:
+        cooldowns[user_id] = now + COOLDOWN_SECONDS
+        log.debug(f"Set user {interaction.user.display_name} cooldown to {now + COOLDOWN_SECONDS} seconds")
+
+    await interaction.response.defer()
+
+    async def inner():
+        log.debug(f"Item Name recieved as {item_name}")
+        item_key = item_name.strip().lower()
+        log.debug(f"Translated into item key of: {item_key}")
+        if item_key not in name_to_id:
+            log.debug(f"Item key not found in item_id list")
+            await interaction.followup.send(
+                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                ephemeral=True
+            )
+            return
+        
+        item_id = name_to_id[item_key]
+        log.debug(f"Set item_id to {item_id}")
+
+        command = [
+            sys.executable,
+            str(PRICE_CHECKER),
+            "--type_id", str(item_id),
+            "--market", str(market)
+        ]
+
+        log.debug(f"Running subprocess: {command}")
+        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
+        log.debug(result.stdout)
+        log.error(result.stderr)
+
+        if result.returncode == 0:
+            log.debug(f"Recieved code 0")
+            price_text = result.stdout.strip()
+            log.debug(f"Generated response as {price_text}")
+
+        if result.returncode != 0:
+            log.warning(f"Recieved code {result.returncode}")
+            await interaction.followup.send(
+                f"Market Summary failed for **{item_name}**.",
+                ephemeral=True
+            )
+            return
+        
+        await interaction.followup.send(
+            content=(
+                price_text
+            ),
+        )
+    try:
+        await asyncio.wait_for(inner(), timeout=30)
+    except asyncio.TimeoutError:
+        await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
 
 
 bot.run(TOKEN)
