@@ -2,7 +2,7 @@ from modules.utils.logging_setup import get_logger
 from modules.utils.ore_controller import calculate_ore_value, load_ore_list
 from modules.esi.data_control import save_ore_orders
 from modules.utils.init_db import init_db
-from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA
+from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, MARKET_DB_FILE_PLEX
 import asyncio
 import aiosqlite
 from datetime import datetime, UTC
@@ -35,6 +35,7 @@ async def main():
 
     await init_db(MARKET_DB_FILE_GSF)
     await init_db(MARKET_DB_FILE_JITA)
+    await init_db(MARKET_DB_FILE_PLEX)
 
     ore_list = await load_ore_list()
 

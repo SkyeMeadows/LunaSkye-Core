@@ -49,6 +49,7 @@ REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
 REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
 ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
 REPACKAGED_VOLUME = DATA_DIR / "repackaged_volumes.json"
+MARKET_DB_FILE_PLEX = DATA_DIR / "plex_market_prices.db"
 
 # Files (ESI)
 TOKEN_FILE = ESI_DIR / "token.json"
