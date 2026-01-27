@@ -3,7 +3,7 @@ import numpy as np
 from collections import defaultdict
 import aiosqlite
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ORE_LIST, REPROCESS_YIELD, REPROCESS_IDS, ICE_PRODUCT_LIST, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF
+from modules.utils.paths import ORE_LIST, REPROCESS_YIELD, REPROCESS_IDS, ICE_PRODUCT_LIST
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
 
 
