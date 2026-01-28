@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
 from modules.utils.logging_setup import get_logger
 from modules.esi.data_control import query_db_days
-from modules.utils.paths import MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ITEM_IDS_FILE
+from modules.utils.paths import MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ITEM_IDS_FILE, MARKET_DB_FILE_PLEX
 
 log = get_logger("MarketSummaryGenerator")
 
@@ -36,6 +36,10 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     elif market == "c-j6mt (gsf)":
         log.debug(f"Market recognized as C-J")
         MARKET_DB = MARKET_DB_FILE_GSF
+        log.debug(f"Market file located at {MARKET_DB}")
+    elif market == "plex":
+        log.debug(f"Market recognized as PLEX Market")
+        MARKET_DB = MARKET_DB_FILE_PLEX
         log.debug(f"Market file located at {MARKET_DB}")
     else:
         log.error(f"Market {market} not recognized, defaulting to Jita")

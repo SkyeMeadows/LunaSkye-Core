@@ -12,6 +12,7 @@ from modules.esi.session_control import load_cache_time, load_esi_token
 from modules.esi.at_manager import establish_esi_session, test_esi_status
 from modules.esi.data_control import save_orders, save_ore_orders, clear_mineral_table, save_mineral_price
 from modules.utils.ore_controller import load_ore_list, calculate_ore_value
+from modules.utils.init_db import init_db
 
 log = get_logger("MarketRequestor")
 
@@ -223,6 +224,7 @@ async def main():
 
     if query_jita_bool == True:
         log.debug(f"Attemtping to gather Jita data")
+        await init_db(MARKET_DB_FILE_JITA)    
         # Attempting to Gather Jita Data
         try:
             jita_orders, last_fetch_time = await fetch_all_orders(token, "jita")
@@ -246,6 +248,7 @@ async def main():
     
     if query_gsf_bool == True:
         log.debug(f"Attemtping to gather GSF data")
+        await init_db(MARKET_DB_FILE_GSF)
         # Attempting to Gather GSF Data
         try:
             log.debug(f"Attempting to fetch all orders for GSF with token {token}")
@@ -276,7 +279,8 @@ async def main():
 
     if query_plex_bool == True:
         # Attempting to Gather PLEX Data
-        log.debug(f"Attemtping to gather PLEX data")
+        log.debug(f"Attemtping to gather PLEX data")  
+        await init_db(MARKET_DB_FILE_PLEX)
         try:
             log.debug(f"Attempting to fetch all orders for PLEX with token {token}")
             plex_orders, last_fetch_time = await fetch_all_orders(token, "plex")

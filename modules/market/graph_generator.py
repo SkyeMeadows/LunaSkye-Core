@@ -18,7 +18,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF
+from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, MARKET_DB_FILE_PLEX
 
 log = get_logger("GraphGenerator")
 
@@ -36,11 +36,15 @@ async def connect_to_db(type_id: int, days: int, market: str):
         log.debug(f"Market recognized as Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
         log.debug(f"Market file located at {MARKET_DB}")
-    if market == "c-j6mt (gsf)":
+    elif market == "c-j6mt (gsf)":
         log.debug(f"Market recognized as C-J")
         MARKET_DB = MARKET_DB_FILE_GSF
         log.debug(f"Market file located at {MARKET_DB}")
-    elif market != ("jita" or "c-j6mt (gsf)"):
+    elif market == "plex":
+        log.debug(f"Market recognized as PLEX Market")
+        MARKET_DB = MARKET_DB_FILE_PLEX
+        log.debug(f"Market file located at {MARKET_DB}")
+    else:
         log.error(f"Market {market} not recognized, defaulting to Jita")
         MARKET_DB = MARKET_DB_FILE_JITA
         log.debug(f"Market file located at {MARKET_DB}")

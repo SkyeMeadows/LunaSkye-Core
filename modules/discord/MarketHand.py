@@ -104,7 +104,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
 async def get_graph(
     interaction: discord.Interaction,
     item_name: str,
-    market: Literal["Jita", "C-J6MT (GSF)"],
+    market: Literal["Jita", "C-J6MT (GSF)", "PLEX"],
     days_history: float
 ):
     user_id = interaction.user.id
@@ -174,7 +174,7 @@ async def get_graph(
 async def item_summary(
     interaction: discord.Interaction,
     item_name: str,
-    market: Literal["Jita", "C-J6MT (GSF)"],
+    market: Literal["Jita", "C-J6MT (GSF)", "PLEX"],
     days_history: int
 ):
     log.debug(f"Command item_summary called with arguments: {item_name}, {market}, {days_history}")
@@ -261,7 +261,7 @@ async def item_summary(
 async def check_price(
     interaction: discord.Interaction,
     item_name: str,
-    market: Literal["Jita", "C-J6MT (GSF)"]
+    market: Literal["Jita", "C-J6MT (GSF)", "PLEX"]
 ):
     log.debug(f"check_price called with arguments {item_name}, {market}")
     user_id = interaction.user.id
