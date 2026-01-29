@@ -14,6 +14,7 @@ import sys
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
 from modules.market.graph_generator import match_item_name, generate_graph
+from modules.market.market_summary_generator import create_summary
 
 
 log = get_logger("MarketHandBot")
@@ -212,44 +213,13 @@ async def item_summary(
         item_id = name_to_id[item_key]
         log.debug(f"Set item_id to {item_id}")
 
-        command = [
-            sys.executable,
-            str(MARKET_SUMMARY_GENERATOR),
-            "--type_id", str(item_id),
-            "--market", str(market)
-        ]
-
-        if days_history:
-            log.debug(f"Appending days history argument with days: {days_history}")
-            command.append("--days")
-            command.append(str(days_history))
-
-        log.debug(f"Running subprocess: {' '.join(command)}")
-
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
-        log.debug(result.stdout)
-        log.error(result.stderr)
-
-        if result.returncode == 0:
-            log.debug(f"Recieved code 0")
-            summary = result.stdout.strip()
-            log.debug(f"Generated summary as {summary}")
-
-        if result.returncode != 0:
-            log.warning(f"Recieved code {result.returncode}")
-            await interaction.followup.send(
-                f"Market Summary failed for **{item_name}**.",
-                ephemeral=True
-            )
-            return
+        summary_text, display_days, type_name = await create_summary(item_id, days_history, market, item_name)
         
         await interaction.followup.send(
             content=(
-                summary
+                summary_text
             ),
         )
-        
-
 
     try:
         await asyncio.wait_for(inner(), timeout=30)
