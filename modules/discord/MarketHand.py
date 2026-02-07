@@ -13,7 +13,7 @@ import time
 import sys
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
-from modules.market.graph_generator import match_item_name, generate_graph
+from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
 
 
@@ -302,6 +302,78 @@ async def check_price(
         await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
+
+@bot.tree.command(name="get_combined_graph", description="Send a price graph for the item with the Jita and GSF markets combined.")
+@app_commands.describe(
+    item_name="The exact name of the item you are looking for",
+    days_history="How far back do you want to look in days? (Supports decimals)"
+)
+async def get_combined_graph(
+    interaction: discord.Interaction,
+    item_name: str,
+    days_history: float
+):
+    user_id = interaction.user.id
+    now = time.time()
+
+    if now < cooldowns[user_id]:
+        retry_after = cooldowns[user_id] - now
+        await interaction.response.send_message(
+            f"You're on cooldown! Try again in `{retry_after:.1f}` seconds.",
+            ephemeral=True
+        )
+        return
+    else:
+        cooldowns[user_id] = now + COOLDOWN_SECONDS
+
+    user_input_name = item_name.strip().lower()
+    
+    if len(user_input_name) > 50:
+        await interaction.response.send_message("Input too long!", ephemeral=True)
+        return
+
+    await interaction.response.defer()
+
+    async def inner():
+        item_key = item_name.strip().lower()
+        if item_key not in name_to_id:
+            await interaction.followup.send(
+                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                ephemeral=True
+            )
+            return
+
+        item_id = name_to_id[item_key]
+        
+        type_name = await match_item_name(item_id)
+        filepath, display_days, resolved_type_name = await generate_combined_graph(item_id, days_history, type_name)
+
+        
+        if filepath is None:
+            await interaction.followup.send(
+                f"No data available for **{resolved_type_name}** in the past {days_history} days.",
+                ephemeral=True
+            )
+            return
+
+        await interaction.followup.send(
+            content=(
+                f"Generated price graph for **{resolved_type_name}** over the last {display_days} days:"
+            ),
+            file=discord.File(filepath)
+        )
+
+        if not os.path.isfile(filepath):
+            await interaction.followup.send(
+                f" Expected graph file not found: `{filepath}`",
+                ephemeral=True
+            )
+            return
+
+    try:
+        await asyncio.wait_for(inner(), timeout=45)
+    except asyncio.TimeoutError:
+        await interaction.followup.send("Graph generation took too long (45s timeout).", ephemeral=True)
 
 
 bot.run(TOKEN)

@@ -24,10 +24,6 @@ log = get_logger("GraphGenerator")
 
 mpl.set_loglevel("warning")
 
-
-
-
-
 # === Load item names and IDs ===
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 
@@ -67,6 +63,7 @@ async def connect_to_db(type_id: int, days: int, market: str):
             ORDER BY timestamp ASC
         """
         params = [type_id, cutoff_str]
+        log.debug(f"Query set, params set as {params}")
 
         async with db.execute(query, tuple(params)) as cursor:
             rows = await cursor.fetchall()
@@ -146,6 +143,109 @@ async def generate_graph(type_id, days, market, type_name):
 
     return filepath, display_days, type_name
 
+
+
+async def generate_combined_graph(type_id, days, type_name):
+    jita_rows = await connect_to_db(type_id, days, "jita")
+    log.debug(f"Got jita_rows, length is {len(jita_rows)}")
+
+    gsf_rows = await connect_to_db(type_id, days, "c-j6mt (gsf)")
+    log.debug(f"Got gsf_rows, length is {len(gsf_rows)}")
+
+    jita_sell_by_time = defaultdict(lambda: float('inf'))  # lowest sell wins
+    gsf_sell_by_time = defaultdict(lambda: float('inf'))  # lowest sell wins
+
+    for row in jita_rows:
+        iso_ts = row["timestamp"]
+        ts = pd.to_datetime(iso_ts)
+        unix_timestamp = int(ts.timestamp())
+        jita_sell_by_time[unix_timestamp] = min(jita_sell_by_time[unix_timestamp], row["price"])
+
+    for row in gsf_rows:
+        iso_ts = row["timestamp"]
+        ts = pd.to_datetime(iso_ts)
+        unix_timestamp = int(ts.timestamp())
+        gsf_sell_by_time[unix_timestamp] = min(gsf_sell_by_time[unix_timestamp], row["price"])
+
+    jita_sell_times = sorted(jita_sell_by_time.keys())
+    jita_sell_prices  = [jita_sell_by_time[t] for t in jita_sell_times]
+
+    gsf_sell_times = sorted(gsf_sell_by_time.keys())
+    gsf_sell_prices  = [gsf_sell_by_time[t] for t in gsf_sell_times]
+
+    jita_sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in jita_sell_times]
+    gsf_sell_dt = [datetime.fromtimestamp(t, tz=timezone.utc) for t in gsf_sell_times]
+
+    if jita_sell_dt:
+        oldest = jita_sell_dt[0]
+        most_recent = jita_sell_dt[-1]
+        delta = most_recent - oldest
+        actual_days = delta.total_seconds() / 86400
+        jita_display_days = round(min(days, actual_days),1)
+    else:
+        jita_display_days = 0
+
+    if gsf_sell_dt:
+        oldest = gsf_sell_dt[0]
+        most_recent = gsf_sell_dt[-1]
+        delta = most_recent - oldest
+        actual_days = delta.total_seconds() / 86400
+        gsf_display_days = round(min(days, actual_days),1)
+    else:
+        gsf_display_days = 0
+
+    true_display_days = min(jita_display_days, gsf_display_days)
+
+    if true_display_days == 0:
+        return None, true_display_days, type_name
+    
+    plt.style.use("dark_background")
+
+    fig, ax = plt.subplots(1, 1, figsize=(16,10), sharex=True, sharey=True, constrained_layout=True)
+
+    ax.plot(jita_sell_dt, jita_sell_prices, color="Green", linestyle=' ', marker='o', label=f"Jita Sell Orders ({type_name})", linewidth=1, alpha=0.8)
+
+    ax.plot(gsf_sell_dt, gsf_sell_prices, color="Yellow", linestyle=' ', marker='o', label=f"GSF Sell Orders ({type_name})", linewidth=1, alpha=0.8)
+
+    # Jita Averages
+    if actual_days > 1:
+        df = pd.DataFrame({'price': jita_sell_prices}, index=jita_sell_dt)
+        sell_ma = df['price'].rolling('24h', min_periods=1).mean()
+        ax.plot(df.index, sell_ma, color="Green", linestyle='-', linewidth=1, alpha=0.8, label="Jita 24h Sell Average")
+    
+    # GSF Averages
+    if actual_days > 1:
+        df = pd.DataFrame({'price': gsf_sell_prices}, index=gsf_sell_dt)
+        sell_ma = df['price'].rolling('24h', min_periods=1).mean()
+        ax.plot(df.index, sell_ma, color="Yellow", linestyle='-', linewidth=1, alpha=0.8, label="GSF 24h Sell Average")
+    
+    ax.set_title(f"Combined market chart for {type_name} - Past {true_display_days} days")
+    ax.set_xlabel("Price (ISK)")
+    ax.legend()
+
+    ax.grid(True, which='major', alpha=0.5)
+    ax.grid(True, which='minor', alpha=0.3)
+
+    # === Date formatting ===
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d %H:%M'))
+
+    # Smart tick spacing based on time range
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, int(days // 10))))
+
+    plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+    fig.autofmt_xdate()  # helps with layout
+
+    os.makedirs(GRAPHS_TEMP_DIR, exist_ok=True)
+
+    filepath =f"{GRAPHS_TEMP_DIR}/combined_market_{type_name}_past_{true_display_days}d.png"
+
+    fig.savefig(filepath, dpi=200, bbox_inches='tight')
+    log.info(f"Saved figure to {filepath}")
+
+    return filepath, true_display_days, type_name
+
+
+
 async def main():
     type_id = args.type_id
     days = args.days if args.days > 0 else 1
@@ -155,6 +255,9 @@ async def main():
 
     filepath, display_days, type_name = await generate_graph(type_id, days, market, type_name)
     print(str(filepath))
+
+    log.debug(f"Next")
+    filepath, display_days, type_name = await generate_combined_graph(type_id, days, type_name)
     return 0
 
 if __name__ == "__main__":
