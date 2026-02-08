@@ -128,8 +128,10 @@ async def generate_graph(type_id, days, market, type_name):
         df = pd.DataFrame({'price': sell_prices}, index=sell_dt)
         sell_ma = df['price'].rolling('24h', min_periods=1).mean()
         ax1.plot(df.index, sell_ma, color="orange", linestyle='-', linewidth=1, alpha=0.8, label="24h Sell Average")
+
+    market_text = str(market).upper()
     
-    ax1.set_title(f"{market} chart for {type_name} - Past {display_days} days")
+    ax1.set_title(f"{market_text} chart for {type_name} - Past {display_days} days")
     ax1.set_ylabel("Price (ISK)")
     ax1.set_xlabel("Time (UTC)")
     ax1.legend()
@@ -233,7 +235,7 @@ async def generate_combined_graph(type_id, days, type_name):
         df = pd.DataFrame({'price': gsf_sell_prices}, index=gsf_sell_dt)
         sell_ma = df['price'].rolling('24h', min_periods=1).mean()
         ax.plot(df.index, sell_ma, color="Yellow", linestyle='-', linewidth=1, alpha=0.8, label="GSF 24h Sell Average")
-    
+
     ax.set_title(f"Combined market chart for {type_name} - Past {true_display_days} days")
     ax.set_ylabel("Price (ISK)")
     ax.set_xlabel("Time (UTC)")
