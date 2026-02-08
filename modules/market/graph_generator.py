@@ -27,6 +27,14 @@ mpl.set_loglevel("warning")
 # === Load item names and IDs ===
 items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
 
+def format_price(value, pos):
+    if value >= 1e9:
+        return f'{value / 1e9:.1f}B'
+    elif value >= 1e6:
+        return f'{value / 1e6:.1f}M'
+    else:
+        return f'{value:,.0f}'
+
 async def connect_to_db(type_id: int, days: int, market: str):
     if market == "jita":
         log.debug(f"Market recognized as Jita")
@@ -109,6 +117,7 @@ async def generate_graph(type_id, days, market, type_name):
     plt.style.use("dark_background")
 
     fig, (ax1) = plt.subplots(1, 1, figsize=(16,10), sharex=True, constrained_layout=True)
+    ax1.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(format_price))
 
     ax1.plot(sell_dt, sell_prices, color="green", linestyle='--', marker='o', label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
@@ -205,6 +214,7 @@ async def generate_combined_graph(type_id, days, type_name):
     plt.style.use("dark_background")
 
     fig, ax = plt.subplots(1, 1, figsize=(16,10), sharex=True, sharey=True, constrained_layout=True)
+    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(format_price))
 
     ax.plot(jita_sell_dt, jita_sell_prices, color="Green", linestyle=' ', marker='o', label=f"Jita Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
