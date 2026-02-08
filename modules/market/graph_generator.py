@@ -112,6 +112,8 @@ async def generate_graph(type_id, days, market, type_name):
 
     ax1.plot(sell_dt, sell_prices, color="green", linestyle='--', marker='o', label=f"Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
+    ax1.margins(x=0)
+
     #Doing Averages
     if actual_days > 1:
         df = pd.DataFrame({'price': sell_prices}, index=sell_dt)
@@ -120,6 +122,7 @@ async def generate_graph(type_id, days, market, type_name):
     
     ax1.set_title(f"{market} chart for {type_name} - Past {display_days} days")
     ax1.set_ylabel("Price (ISK)")
+    ax1.set_xlabel("Time (UTC)")
     ax1.legend()
 
     ax1.grid(True, which='major', alpha=0.5)
@@ -207,6 +210,8 @@ async def generate_combined_graph(type_id, days, type_name):
 
     ax.plot(gsf_sell_dt, gsf_sell_prices, color="Yellow", linestyle=' ', marker='o', label=f"GSF Sell Orders ({type_name})", linewidth=1, alpha=0.8)
 
+    ax.margins(x=0)
+
     # Jita Averages
     if actual_days > 1:
         df = pd.DataFrame({'price': jita_sell_prices}, index=jita_sell_dt)
@@ -220,7 +225,8 @@ async def generate_combined_graph(type_id, days, type_name):
         ax.plot(df.index, sell_ma, color="Yellow", linestyle='-', linewidth=1, alpha=0.8, label="GSF 24h Sell Average")
     
     ax.set_title(f"Combined market chart for {type_name} - Past {true_display_days} days")
-    ax.set_xlabel("Price (ISK)")
+    ax.set_ylabel("Price (ISK)")
+    ax.set_xlabel("Time (UTC)")
     ax.legend()
 
     ax.grid(True, which='major', alpha=0.5)
