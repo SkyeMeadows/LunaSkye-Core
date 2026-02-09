@@ -403,7 +403,7 @@ async def stream():
         },
     )
 
-'''
+
 @app.before_request
 async def enforce_https():
     if testing_mode:
@@ -411,6 +411,6 @@ async def enforce_https():
     if request.scheme != "https":
         url = request.url.replace("http://", "https://", 1)
         return redirect(url, code=301)    
-'''
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002)#, certfile='server.crt', keyfile='server.key')
+    app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
