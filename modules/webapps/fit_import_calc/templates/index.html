@@ -97,7 +97,7 @@
                             <td>{{ item.subtotal_gsf | round | int | string | replace('.', ',') }}</td>
                             <td>{{ item.import_cost | round | int | string | replace('.', ',') }}</td>
                             <td>{{ item.purchase_loc }}</td>
-                            <td>{{ item.marked_up_price | round | int | string | replace('.', ',') }}</td>
+                            <td>{{ item.markup | round | int | string | replace('.', ',') }}</td>
                         </tr>
                     {% endfor %}
                 </table>
