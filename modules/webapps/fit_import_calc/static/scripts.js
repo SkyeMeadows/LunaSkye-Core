@@ -108,7 +108,7 @@ function renderResults(parsed, totals, buy_lists) {
                     <th>C-J6MT Sell Price</th>
                     <th>Import Price</th>
                     <th>Purchase Location</th>
-                    <th>Marked Up Price (+${totals?.markup_pct || 0}%)</th>
+                    <th>C-J6MT Markup</th>
                 </tr>`;
 
             for (const item of items) {
@@ -123,7 +123,7 @@ function renderResults(parsed, totals, buy_lists) {
                         <td>${Math.round(item.subtotal_gsf).toLocaleString()}</td>
                         <td>${Math.round(item.import_cost).toLocaleString()}</td>
                         <td>${item.purchase_loc}</td>
-                        <td>${Math.round(item.marked_up_price).toLocaleString()}</td>
+                        <td>${Math.round(item.markup).toLocaleString()}</td>
                     </tr>`;
             }
             html += "</table>";

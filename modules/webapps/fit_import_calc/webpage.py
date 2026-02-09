@@ -324,7 +324,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
             "subtotal_jita": item_data["subtotal_jita"],
             "price_gsf": item_data["price_gsf"],
             "subtotal_gsf": item_data["subtotal_gsf"],
-            "marked_up_price": item_data["marked_up_price"],
+            "markup": item_data["markup"],
             "volume": item_data["volume"],
             "import_cost": item_data["import_cost"],
             "min_price": item_data["min_price"],
@@ -403,6 +403,7 @@ async def stream():
         },
     )
 
+'''
 @app.before_request
 async def enforce_https():
     if testing_mode:
@@ -410,6 +411,6 @@ async def enforce_https():
     if request.scheme != "https":
         url = request.url.replace("http://", "https://", 1)
         return redirect(url, code=301)    
-
+'''
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
+    app.run(debug=True, host="0.0.0.0", port=5002)#, certfile='server.crt', keyfile='server.key')
