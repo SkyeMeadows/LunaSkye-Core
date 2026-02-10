@@ -102,7 +102,30 @@ async def query_db_days(type_id, market_db, days):
             rows = await cursor.fetchall()
             log.debug(f"Returning recent data for type id {type_id}")
             return rows
-        
+
+async def lowest_price_per_day(type_id, market_db, days):
+    async with aiosqlite.connect(market_db) as db:
+        db.row_factory = aiosqlite.Row
+
+        query = """
+            SELECT 
+                DATE(timestamp) as order_date,
+                MIN(price) as lowest_price
+            FROM market_orders
+            WHERE type_id = ?
+                AND is_buy_order = FALSE
+                AND timestamp >= datetime('now', '-' || ? || ' days')
+            GROUP BY order_date
+            ORDER BY order_date DESC
+        """
+
+        params = [type_id, round(days*24)]
+
+        async with db.execute(query, tuple(params)) as cursor:
+            rows = await cursor.fetchall()
+            log.debug(f"Returning lowest price per day for type id {type_id}")
+            return rows
+
 async def pull_fitting_price_data(type_id, market_db):
     query = """
         SELECT timestamp, type_id, volume_remain, price, is_buy_order
