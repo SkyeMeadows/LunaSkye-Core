@@ -6,13 +6,14 @@ import asyncio
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from modules.market.market_utils import get_market_db
-
 if __name__ == "__main__":
-    # Dynamically add project root to sys.path
-    project_root = Path(__file__).resolve().parent.parent.parent 
-    sys.path.insert(0, str(project_root))
+    # Dynamically add project root to sys.path so local modules can be imported
+    project_root = Path(__file__).resolve().parent.parent.parent
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
 
+from modules.market.market_utils import get_market_db
 from modules.utils.logging_setup import get_logger
 from modules.esi.data_control import query_db_days, lowest_price_per_day
 from modules.utils.paths import MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ITEM_IDS_FILE, MARKET_DB_FILE_PLEX
@@ -34,8 +35,8 @@ async def create_summary(type_id: int, days: int, market: str, type_name: str):
     try:
         MARKET_DB = get_market_db(market)
     except ValueError as e:
-        log.error("Error determining market database: %s", e)
-        raise e
+        log.error("Error determining market database for '%s': %s. Defaulting to Jita.", market, e)
+        MARKET_DB = MARKET_DB_FILE_JITA
 
     sell_by_time = defaultdict(lambda: float('inf'))
 
