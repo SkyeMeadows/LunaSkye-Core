@@ -1,7 +1,7 @@
 import aiosqlite
 import pandas as pd
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_VOLUME_FILE
+from modules.utils.paths import TYPE_DICTIONARY_FILE
 from modules.utils.ore_controller import load_reprocess_ids
 
 log = get_logger("DataControl")
@@ -123,7 +123,7 @@ async def pull_fitting_price_data(type_id, market_db):
             return row
 
 async def get_volume(type_id):
-    df = pd.read_csv(ITEM_IDS_VOLUME_FILE)
+    df = pd.read_csv(TYPE_DICTIONARY_FILE)
     result = df[df['typeID'] == type_id]['volume']
     return float(result.iloc[0])
 

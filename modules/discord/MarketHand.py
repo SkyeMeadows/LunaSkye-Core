@@ -12,7 +12,7 @@ from datetime import datetime, UTC
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
+from modules.utils.paths import TYPE_DICTIONARY_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
 from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
 
@@ -35,7 +35,7 @@ log.info("Discord bot Started")
 ### Items Available
 
 log.debug("Loading Item IDs")
-item_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+item_df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
 name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
@@ -86,7 +86,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message("Input too long!", ephemeral=True)
         return
     
-    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+    df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
     for itemID in df:
         row = item_df[item_df['typeID'] == itemID]
 

@@ -18,14 +18,14 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, MARKET_DB_FILE_PLEX
+from modules.utils.paths import GRAPHS_TEMP_DIR, TYPE_DICTIONARY_FILE, MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, MARKET_DB_FILE_PLEX
 
 log = get_logger("GraphGenerator")
 
 mpl.set_loglevel("warning")
 
 # === Load item names and IDs ===
-items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+items_df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
 
 def format_price(value, pos):
     if value >= 1e9:
