@@ -8,11 +8,10 @@ from typing import Literal  # For fixed choices
 import pandas as pd
 from dotenv import load_dotenv
 from collections import defaultdict
-from datetime import datetime, UTC
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_FILE, GRAPH_GENERATOR, PROJECT_ROOT, MARKET_SUMMARY_GENERATOR, PRICE_CHECKER
+from modules.utils.paths import ITEM_IDS_FILE, PROJECT_ROOT, PRICE_CHECKER
 from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
 
@@ -93,7 +92,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
     match = df[df["typeName"] == user_item]
     if not match.empty:
         itemID = match.iloc[0]["typeID"]
-        await interaction.response.send_message(f"The Item ID of **{user_item}** is *{itemID}*")
+        await interaction.response.send_message(f"The Item ID of `{user_item}` is `{itemID}`")
 
     
 @bot.tree.command(name="get_graph", description="Sends a price graph for the selected item and time range.")
@@ -133,7 +132,7 @@ async def get_graph(
         item_key = item_name.strip().lower()
         if item_key not in name_to_id:
             await interaction.followup.send(
-                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                f"Item `{item_name}` not found. Please use the exact in-game name.",
                 ephemeral=True
             )
             return
@@ -145,14 +144,14 @@ async def get_graph(
 
         if filepath is None:
             await interaction.followup.send(
-                f"No data available for **{resolved_type_name}** in the past {days_history} days in {market}.",
+                f"No data available for `{resolved_type_name}` in the past `{days_history}` days in `{market}`.",
                 ephemeral=True
             )
             return
 
         await interaction.followup.send(
             content=(
-                f"Generated price graph for **{resolved_type_name}** over the last {display_days} days in {market}:"
+                f"Generated price graph for `{resolved_type_name}` over the last `{display_days}` days in `{market}`:"
             ),
             file=discord.File(filepath)
         )
@@ -205,7 +204,7 @@ async def item_summary(
         if item_key not in name_to_id:
             log.debug(f"Item key not found in item_id list")
             await interaction.followup.send(
-                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                f"Item `{item_name}` not found. Please use the exact in-game name.",
                 ephemeral=True
             )
             return
@@ -260,7 +259,7 @@ async def check_price(
         if item_key not in name_to_id:
             log.debug(f"Item key not found in item_id list")
             await interaction.followup.send(
-                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                f"Item `{item_name}` not found. Please use the exact in-game name.",
                 ephemeral=True
             )
             return
@@ -288,7 +287,7 @@ async def check_price(
         if result.returncode != 0:
             log.warning(f"Recieved code {result.returncode}")
             await interaction.followup.send(
-                f"Market Summary failed for **{item_name}**.",
+                f"Price Check failed for `{item_name}` in `{market}`.",
                 ephemeral=True
             )
             return
@@ -338,7 +337,7 @@ async def get_combined_graph(
         item_key = item_name.strip().lower()
         if item_key not in name_to_id:
             await interaction.followup.send(
-                f"Item '{item_name}' not found. Please use the exact in-game name.",
+                f"Item `{item_name}` not found. Please use the exact in-game name.",
                 ephemeral=True
             )
             return
@@ -351,14 +350,14 @@ async def get_combined_graph(
         
         if filepath is None:
             await interaction.followup.send(
-                f"No data available for **{resolved_type_name}** in the past {days_history} days.",
+                f"No data available for `{resolved_type_name}` in the past `{days_history}` days.",
                 ephemeral=True
             )
             return
 
         await interaction.followup.send(
             content=(
-                f"Generated price graph for **{resolved_type_name}** over the last {display_days} days:"
+                f"Generated price graph for `{resolved_type_name}` over the last `{display_days}` days:"
             ),
             file=discord.File(filepath)
         )
