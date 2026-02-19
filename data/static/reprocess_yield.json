@@ -149,7 +149,7 @@
   },
   "Crokite": {
     "Tritanium": 0,
-    "Pyerite": 80,
+    "Pyerite": 800,
     "Mexallon": 2000,
     "Isogen": 0,
     "Nocxium": 800,
@@ -1183,7 +1183,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 69
   },
-  "Enriched Clear Icicle": {
+  "Clear Icicle IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -1368,7 +1368,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 173
   },
-  "Pristine White Glaze": {
+  "White Glaze IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -1405,7 +1405,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 1
   },
-  "Smooth Glacial Mass": {
+  "Glacial Mass IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -1442,7 +1442,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 1
   },
-  "Thick Blue Ice": {
+  "Blue Ice IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -3736,7 +3736,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Crimson Arkonor": {
+  "Arkonor II-Grade": {
     "Tritanium": 0,
     "Pyerite": 3360,
     "Mexallon": 1260,
@@ -3773,7 +3773,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Flawless Arkonor": {
+  "Arkonor IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 3680,
     "Mexallon": 1380,
@@ -3810,7 +3810,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Prime Arkonor": {
+  "Arkonor III-Grade": {
     "Tritanium": 0,
     "Pyerite": 3520,
     "Mexallon": 1320,
@@ -3847,7 +3847,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Abyssal Bezdnacine": {
+  "Bezdnacine II-Grade": {
     "Tritanium": 42000,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -3884,7 +3884,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Hadal Bezdnacine": {
+  "Bezdnacine III-Grade": {
     "Tritanium": 44000,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -3921,7 +3921,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Cubic Bistot": {
+  "Bistot IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 3680,
     "Mexallon": 1380,
@@ -3958,7 +3958,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Monoclinic Bistot": {
+  "Bistot III-Grade": {
     "Tritanium": 0,
     "Pyerite": 3520,
     "Mexallon": 1320,
@@ -3995,7 +3995,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Triclinic Bistot": {
+  "Bistot II-Grade": {
     "Tritanium": 0,
     "Pyerite": 3360,
     "Mexallon": 1260,
@@ -4032,7 +4032,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Crystalline Crokite": {
+  "Crokite III-Grade": {
     "Tritanium": 0,
     "Pyerite": 880,
     "Mexallon": 2200,
@@ -4069,7 +4069,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Pellucid Crokite": {
+  "Crokite IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 920,
     "Mexallon": 2300,
@@ -4106,7 +4106,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Sharp Crokite": {
+  "Crokite II-Grade": {
     "Tritanium": 0,
     "Pyerite": 840,
     "Mexallon": 2100,
@@ -4143,7 +4143,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Jet Ochre": {
+  "Dark Ochre IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 1564,
@@ -4180,7 +4180,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Obsidian Ochre": {
+  "Dark Ochre III-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 1496,
@@ -4217,7 +4217,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Onyx Ochre": {
+  "Dark Ochre II-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 1428,
@@ -4254,7 +4254,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Imperial Ducinium": {
+  "Ducinium IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4291,7 +4291,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Noble Ducinium": {
+  "Ducinium II-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4328,7 +4328,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Royal Ducinium": {
+  "Ducinium III-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4365,7 +4365,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Augmented Eifyrium": {
+  "Eifyrium IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4402,7 +4402,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Boosted Eifyrium": {
+  "Eifyrium III-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4439,7 +4439,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Doped Eifyrium": {
+  "Eifyrium II-Grade": {
     "Tritanium": 0,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4476,7 +4476,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Brilliant Gneiss": {
+  "Gneiss IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 2300,
     "Mexallon": 1725,
@@ -4513,7 +4513,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Iridescent Gneiss": {
+  "Gneiss II-Grade": {
     "Tritanium": 0,
     "Pyerite": 2100,
     "Mexallon": 1575,
@@ -4550,7 +4550,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Prismatic Gneiss": {
+  "Gneiss III-Grade": {
     "Tritanium": 0,
     "Pyerite": 2200,
     "Mexallon": 1650,
@@ -4587,7 +4587,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Clear Griemeer": {
+  "Griemeer II-Grade": {
     "Tritanium": 263,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4624,7 +4624,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Inky Griemeer": {
+  "Griemeer III-Grade": {
     "Tritanium": 275,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4661,7 +4661,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Opaque Griemeer": {
+  "Griemeer IV-Grade": {
     "Tritanium": 288,
     "Pyerite": 0,
     "Mexallon": 0,
@@ -4698,7 +4698,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Glazed Hedbergite": {
+  "Hedbergite III-Grade": {
     "Tritanium": 0,
     "Pyerite": 495,
     "Mexallon": 0,
@@ -4735,7 +4735,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Lustrous Hedbergite": {
+  "Hedbergite IV-Grade": {
     "Tritanium": 0,
     "Pyerite": 518,
     "Mexallon": 0,
@@ -4772,7 +4772,7 @@
     "Oxygen Isotopes": 0,
     "Strontium Clathrates": 0
   },
-  "Vitric Hedbergite": {
+  "Hedbergite II-Grade": {
     "Tritanium": 0,
     "Pyerite": 473,
     "Mexallon": 0,
