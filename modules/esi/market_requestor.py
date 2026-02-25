@@ -115,9 +115,10 @@ async def fetch_all_orders(token, market, on_page=1):
                 raise ESISessionError(f"ESI Token Invalid, on page {on_page}", errors=on_page)
 
             # Setting error limits
-            allowed_errors_left = int(response.headers.get("X-ESI-Error-Limit-Remain", 0))
+            
+            allowed_errors_left = int(response.headers.get("X-ESI-Error-Limit-Remain", 100))
             log.debug(f"ESI Allowed Errors Remaining: {allowed_errors_left}")
-            error_reset = int(response.headers.get("X-ESI-Error-Limit-Reset", 0))
+            error_reset = int(response.headers.get("X-ESI-Error-Limit-Reset", 300))
             log.debug(f"ESI Error Limit Reset in: {error_reset} seconds")
 
             # Finding how many pages are avilable and setting the max page limit to be equal to it.
