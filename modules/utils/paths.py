@@ -17,7 +17,7 @@ UTILS_DIR = MODULES_DIR / "utils"
 MARKET_DIR = MODULES_DIR / "market"
 
 # Subdirectories (data)
-
+STATIC_DATA_DIR = DATA_DIR / "static"
 
 # Subdirectories (logs)
 
@@ -39,16 +39,14 @@ MARKET_SUMMARY_GENERATOR = MARKET_DIR / "market_summary_generator.py"
 PRICE_CHECKER = MARKET_DIR / "price_checker.py"
 
 # Files (Data)
-ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
-ID_QUERY_LIST = DATA_DIR / "query_list.json"
+TYPE_DICTIONARY_FILE = STATIC_DATA_DIR / "TypeDictionary.csv"
 MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
 MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
-ORE_LIST = DATA_DIR / "ore_list.json"
-ICE_PRODUCT_LIST = DATA_DIR / "ice_product_list.json"
-REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
-REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
-ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
-REPACKAGED_VOLUME = DATA_DIR / "repackaged_volumes.json"
+ORE_LIST = STATIC_DATA_DIR / "ore_list.json"
+ICE_PRODUCT_LIST = STATIC_DATA_DIR / "ice_product_list.json"
+REPROCESS_YIELD = STATIC_DATA_DIR / "reprocess_yield.json"
+REPROCESS_IDS = STATIC_DATA_DIR / "reprocess_item_ids.json"
+REPACKAGED_VOLUME = STATIC_DATA_DIR / "repackaged_volumes.json"
 MARKET_DB_FILE_PLEX = DATA_DIR / "plex_market_prices.db"
 
 # Files (ESI)

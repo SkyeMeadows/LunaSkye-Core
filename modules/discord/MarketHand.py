@@ -34,7 +34,7 @@ log.info("Discord bot Started")
 ### Items Available
 
 log.debug("Loading Item IDs")
-item_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+item_df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
 name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
@@ -85,7 +85,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message("Input too long!", ephemeral=True)
         return
     
-    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+    df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
     for itemID in df:
         row = item_df[item_df['typeID'] == itemID]
 
