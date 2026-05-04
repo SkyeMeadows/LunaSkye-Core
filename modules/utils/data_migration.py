@@ -12,7 +12,7 @@ MIGRATIONS = [
 ALL_SCHEMAS = ["jita", "gsf", "plex"]
 SNAPSHOT_HOURS = {0, 4, 8, 12, 16, 20}
 BATCH_SIZE = 10_000
-VACUUM_EVERY = 50  # vacuum SQLite every 500k rows
+VACUUM_EVERY = 5  # vacuum SQLite every 50k rows
 
 def keep_row(ts: datetime) -> bool:
     if ts >= datetime.now(timezone.utc) - timedelta(days=30):
