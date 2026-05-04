@@ -9,8 +9,6 @@ MIGRATIONS = [
 ]
 
 async def migrate(src_path, schema, pool):
-    await init_db(pool, schema)
-
     src = sqlite3.connect(src_path)
     rows = src.execute("SELECT timestamp, type_id, volume_remain, price, is_buy_order FROM market_orders").fetchall()
     # SQLite stored timestamps as ISO strings — convert to datetime
@@ -27,10 +25,19 @@ async def migrate(src_path, schema, pool):
     print(f"{schema}: inserted {len(converted)} rows")
     src.close()
 
+ALL_SCHEMAS = ["jita", "gsf", "plex"]
+
 async def main():
     pool = await asyncpg.create_pool(DB_DSN)
+
+    print("Ensuring schemas and tables exist...")
+    for schema in ALL_SCHEMAS:
+        await init_db(pool, schema)
+        print(f"  {schema}: ready")
+
     for path, schema in MIGRATIONS:
         await migrate(path, schema, pool)
+
     await pool.close()
 
 asyncio.run(main())
