@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,15 +44,13 @@ PRICE_CHECKER = MARKET_DIR / "price_checker.py"
 # Files (Data)
 ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
 ID_QUERY_LIST = DATA_DIR / "query_list.json"
-MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
-MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
+DB_DSN = os.getenv("DATABASE_URL")
 ORE_LIST = DATA_DIR / "ore_list.json"
 ICE_PRODUCT_LIST = DATA_DIR / "ice_product_list.json"
 REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
 REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
 ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
 REPACKAGED_VOLUME = DATA_DIR / "repackaged_volumes.json"
-MARKET_DB_FILE_PLEX = DATA_DIR / "plex_market_prices.db"
 
 # Files (ESI)
 TOKEN_FILE = ESI_DIR / "token.json"

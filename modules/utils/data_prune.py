@@ -1,65 +1,31 @@
-import aiosqlite
-from datetime import datetime, timedelta, UTC
-import os
-import argparse
+import asyncpg
 import asyncio
-from pathlib import Path
 from dotenv import load_dotenv
 from modules.utils.logging_setup import get_logger
+from modules.utils.paths import DB_DSN
 
 log = get_logger("DataPrune")
 
 load_dotenv()
-PRUNE_AGE_DAYS = int(os.getenv("PRUNE_AGE_DAYS"))
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--db_path", type=Path, required=True)
-args = parser.parse_args()
+SCHEMAS = ["jita", "gsf", "plex"]
 
-db_path = args.db_path
-
-async def prune_old_data(DB_FILE):
-
-    cutoff = datetime.now(UTC) - timedelta(days=PRUNE_AGE_DAYS)
-    cutoff_str = cutoff.isoformat()
-    
-    async with aiosqlite.connect(DB_FILE) as db:
-        db.row_factory = aiosqlite.Row
-        
-        command = """
-            DELETE FROM market_orders
-            WHERE timestamp < ?
-            AND rowid IN (
-                WITH numbered AS (
-                    SELECT 
-                        rowid,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY type_id 
-                            ORDER BY timestamp ASC
-                        ) AS row_num
-                    FROM market_orders
-                    WHERE timestamp < ?
-                )
-            SELECT rowid
-            FROM numbered
-            WHERE row_num % 4 != 1
-        )
-        """
-
-        params = [cutoff_str, cutoff_str]
-        
-        async with db.execute(command, tuple(params)) as cursor:
-        
-            deleted_count = cursor.rowcount
-            log.info(f"Pruned {deleted_count} entries")
-            
-        await db.commit()
-        await db.close()
+async def prune_old_data(pool: asyncpg.Pool, schema: str):
+    command = f"""
+        DELETE FROM {schema}.market_orders
+        WHERE timestamp < NOW() - INTERVAL '30 days'
+        AND EXTRACT(HOUR FROM DATE_TRUNC('hour', timestamp + INTERVAL '30 minutes'))
+            NOT IN (0, 4, 8, 12, 16, 20)
+    """
+    async with pool.acquire() as conn:
+        result = await conn.execute(command)
+        deleted_count = int(result.split()[-1])
+        log.info(f"Pruned {deleted_count} rows from {schema}.market_orders")
 
 async def main():
-    await prune_old_data(db_path)
+    pool = await asyncpg.create_pool(DB_DSN)
+    for schema in SCHEMAS:
+        await prune_old_data(pool, schema)
+    await pool.close()
 
 asyncio.run(main())
-    
-
-    

@@ -8,3 +8,4 @@
 /.venv/*
 modules/esi/runtime_cache.txt
 .vscode/launch.json
+launch.bat

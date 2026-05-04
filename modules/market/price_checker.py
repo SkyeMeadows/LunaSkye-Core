@@ -1,19 +1,18 @@
 import argparse
+import asyncpg
 import pandas as pd
 from pathlib import Path
 import sys
 import asyncio
-from collections import defaultdict
-from datetime import datetime, timezone
+from dotenv import load_dotenv
 
 if __name__ == "__main__":
-    # Dynamically add project root to sys.path
-    project_root = Path(__file__).resolve().parent.parent.parent 
+    project_root = Path(__file__).resolve().parent.parent.parent
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
 from modules.esi.data_control import query_recent_price
-from modules.utils.paths import MARKET_DB_FILE_JITA, MARKET_DB_FILE_GSF, ITEM_IDS_FILE
+from modules.utils.paths import ITEM_IDS_FILE, DB_DSN
 
 log = get_logger("PriceChecker")
 
@@ -26,43 +25,35 @@ async def match_item_name(type_id: int):
     else:
         log.error(f"Item ID {type_id} not found in type_ids.csv")
         return f"Unknown Item {type_id}"
-    
-async def price_check(type_id: int, market: str, type_name: str):
+
+async def price_check(type_id: int, market: str, type_name: str, pool: asyncpg.Pool):
     if market == "jita":
-        log.debug(f"Market recognized as Jita")
-        MARKET_DB = MARKET_DB_FILE_JITA
-        log.debug(f"Market file located at {MARKET_DB}")
+        schema = "jita"
     elif market == "c-j6mt (gsf)":
-        log.debug(f"Market recognized as C-J")
-        MARKET_DB = MARKET_DB_FILE_GSF
-        log.debug(f"Market file located at {MARKET_DB}")
+        schema = "gsf"
     else:
         log.error(f"Market {market} not recognized, defaulting to Jita")
-        MARKET_DB = MARKET_DB_FILE_JITA
-        log.debug(f"Market file located at {MARKET_DB}")
-    
-    rows = await query_recent_price(type_id, MARKET_DB)
+        schema = "jita"
 
-    price = rows[3]
-
+    row = await query_recent_price(type_id, pool, schema)
+    price = row[3]
     return price
 
 async def main():
-    type_id = args.type_id
-    market = str((args.market).lower())
-    log.debug(f"Market argument identified as: {market}")
+    load_dotenv()
+    type_id   = args.type_id
+    market    = str(args.market).lower()
     type_name = await match_item_name(type_id)
 
-    price = await price_check(type_id, market, type_name)
+    pool  = await asyncpg.create_pool(DB_DSN)
+    price = await price_check(type_id, market, type_name, pool)
+    await pool.close()
 
-    price_text = f"The Current Price in {market} for {type_name} is **{price}**."
-
-    print(str(price_text))
+    print(f"The Current Price in {market} for {type_name} is **{price}**.")
     return 0
 
 if __name__ == "__main__":
-    # === Parse CLI arguments ===
-    parser = argparse.ArgumentParser(description="Generate market graph for a specific item.")
+    parser = argparse.ArgumentParser(description="Check current price for a specific item.")
     parser.add_argument("--type_id", type=int, required=True)
     parser.add_argument("--market", type=str, default="jita", required=True)
     args = parser.parse_args()

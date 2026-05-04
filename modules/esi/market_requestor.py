@@ -1,4 +1,5 @@
-from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, MARKET_DB_FILE_PLEX
+import asyncpg
+from modules.utils.paths import DB_DSN
 from modules.utils.logging_setup import get_logger
 from dotenv import load_dotenv
 import json
@@ -223,18 +224,20 @@ async def main():
     log.debug(f"Boolean to for checking GSF is {query_gsf_bool}")
     log.debug(f"Boolean to for checking PLEX is {query_plex_bool}")
 
+    pool = await asyncpg.create_pool(DB_DSN)
+
     if query_jita_bool == True:
         log.debug(f"Attemtping to gather Jita data")
-        await init_db(MARKET_DB_FILE_JITA)    
+        await init_db(pool, "jita")
         # Attempting to Gather Jita Data
         try:
             jita_orders, last_fetch_time = await fetch_all_orders(token, "jita")
-            await save_orders(MARKET_DB_FILE_JITA, jita_orders, last_fetch_time)
-            await save_mineral_price(MARKET_DB_FILE_JITA, jita_orders, last_fetch_time)
+            await save_orders(pool, "jita", jita_orders, last_fetch_time)
+            await save_mineral_price(pool, "jita", jita_orders, last_fetch_time)
             for ore_id in ore_list:
-                ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_JITA)
-                await save_ore_orders(MARKET_DB_FILE_JITA, ore_price, last_fetch_time, ore_id)
-            await clear_mineral_table(MARKET_DB_FILE_JITA)
+                ore_price = await calculate_ore_value(ore_id, pool, "jita")
+                await save_ore_orders(pool, "jita", ore_price, last_fetch_time, ore_id)
+            await clear_mineral_table(pool, "jita")
             log.info(f"Completed Jita Query")
         except ESISessionError as e:
             log.warning(f"Recieved ESISessionError as {e}")
@@ -246,20 +249,20 @@ async def main():
             token = await load_esi_token()
             log.info(f"Attempting to resume query where left off for jita (page {on_page})")
             await fetch_all_orders(token, "jita", on_page)
-    
+
     if query_gsf_bool == True:
         log.debug(f"Attemtping to gather GSF data")
-        await init_db(MARKET_DB_FILE_GSF)
+        await init_db(pool, "gsf")
         # Attempting to Gather GSF Data
         try:
             log.debug(f"Attempting to fetch all orders for GSF with token {token}")
             gsf_orders, last_fetch_time = await fetch_all_orders(token, "gsf")
-            await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
-            await save_mineral_price(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
+            await save_orders(pool, "gsf", gsf_orders, last_fetch_time)
+            await save_mineral_price(pool, "gsf", gsf_orders, last_fetch_time)
             for ore_id in ore_list:
-                ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_GSF)
-                await save_ore_orders(MARKET_DB_FILE_GSF, ore_price, last_fetch_time, ore_id)
-            await clear_mineral_table(MARKET_DB_FILE_GSF)
+                ore_price = await calculate_ore_value(ore_id, pool, "gsf")
+                await save_ore_orders(pool, "gsf", ore_price, last_fetch_time, ore_id)
+            await clear_mineral_table(pool, "gsf")
             log.info(f"Completed GSF Query")
         except ESISessionError as e:
             log.warning(f"Recieved ESISessionError as {e}")
@@ -271,21 +274,21 @@ async def main():
             token = await load_esi_token()
             log.info(f"Attempting to resume query where left off for GSF (page {on_page})")
             gsf_orders, last_fetch_time = await fetch_all_orders(token, "gsf", on_page)
-            await save_orders(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
-            await save_mineral_price(MARKET_DB_FILE_GSF, gsf_orders, last_fetch_time)
+            await save_orders(pool, "gsf", gsf_orders, last_fetch_time)
+            await save_mineral_price(pool, "gsf", gsf_orders, last_fetch_time)
             for ore_id in ore_list:
-                ore_price = await calculate_ore_value(ore_id, MARKET_DB_FILE_GSF)
-                await save_ore_orders(MARKET_DB_FILE_GSF, ore_price, last_fetch_time, ore_id)
-            await clear_mineral_table(MARKET_DB_FILE_GSF)
+                ore_price = await calculate_ore_value(ore_id, pool, "gsf")
+                await save_ore_orders(pool, "gsf", ore_price, last_fetch_time, ore_id)
+            await clear_mineral_table(pool, "gsf")
 
     if query_plex_bool == True:
+        log.debug(f"Attemtping to gather PLEX data")
+        await init_db(pool, "plex")
         # Attempting to Gather PLEX Data
-        log.debug(f"Attemtping to gather PLEX data")  
-        await init_db(MARKET_DB_FILE_PLEX)
         try:
             log.debug(f"Attempting to fetch all orders for PLEX with token {token}")
             plex_orders, last_fetch_time = await fetch_all_orders(token, "plex")
-            await save_orders(MARKET_DB_FILE_PLEX, plex_orders, last_fetch_time)
+            await save_orders(pool, "plex", plex_orders, last_fetch_time)
             log.info(f"Completed PLEX Query")
         except ESISessionError as e:
             log.warning(f"Recieved ESISessionError as {e}")
@@ -297,8 +300,9 @@ async def main():
             token = await load_esi_token()
             log.info(f"Attempting to resume query where left off for PLEX (page {on_page})")
             plex_orders, last_fetch_time = await fetch_all_orders(token, "plex", on_page)
-            await save_orders(MARKET_DB_FILE_PLEX, plex_orders, last_fetch_time)
+            await save_orders(pool, "plex", plex_orders, last_fetch_time)
 
+    await pool.close()
     exit(0)
     
 asyncio.run(main())

@@ -1,11 +1,12 @@
 import re
 import json
 import asyncio
+import asyncpg
 import os
 from dotenv import load_dotenv
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
+from modules.utils.paths import REPACKAGED_VOLUME, DB_DSN
 from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
 from modules.esi.image_server import get_image
@@ -54,7 +55,7 @@ async def parse_line(line):
 
     price_jita = 0
     subtotal_jita = 0
-    price_pull_jita = await pull_fitting_price_data(item_id, MARKET_DB_FILE_JITA)
+    price_pull_jita = await pull_fitting_price_data(item_id, db_pool, "jita")
     log.debug(f"Pulled price data for Jita: {price_pull_jita}")
     if price_pull_jita:
         price_jita = price_pull_jita[3]
@@ -62,7 +63,7 @@ async def parse_line(line):
 
     price_gsf = 0
     subtotal_gsf = 0
-    price_pull_gsf = await pull_fitting_price_data(item_id, MARKET_DB_FILE_GSF)
+    price_pull_gsf = await pull_fitting_price_data(item_id, db_pool, "gsf")
     log.debug(f"Pulled price data for GSF: {price_pull_gsf}")
     if price_pull_gsf:
         price_gsf = price_pull_gsf[3]
@@ -341,6 +342,16 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
     }
 
 app = Quart(__name__)
+db_pool: asyncpg.Pool = None
+
+@app.before_serving
+async def startup():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DB_DSN)
+
+@app.after_serving
+async def shutdown():
+    await db_pool.close()
 @app.route("/", methods=["GET", "POST"])
 async def index():
     include_hull = False

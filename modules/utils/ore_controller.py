@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from collections import defaultdict
-import aiosqlite
+import asyncpg
 from modules.utils.logging_setup import get_logger
 from modules.utils.paths import ORE_LIST, REPROCESS_YIELD, REPROCESS_IDS, ICE_PRODUCT_LIST
 from modules.utils.id_mapping import map_id_to_name, map_name_to_id
@@ -50,7 +50,7 @@ async def find_reprocess_yield(item_name):
 
     return refined_products
 
-async def calculate_ore_value(type_id, database_path):
+async def calculate_ore_value(type_id, pool: asyncpg.Pool, schema: str):
     ore_price = 0
     material_price = 0
     ice_list = await load_ice_product_list()
@@ -63,7 +63,7 @@ async def calculate_ore_value(type_id, database_path):
     reprocess_yield = await find_reprocess_yield(item_name)
     log.debug(f"Returned reprocess yield for {type_id} ({item_name}) as {reprocess_yield}")
 
-    mineral_prices = await get_mineral_prices(type_id, database_path)
+    mineral_prices = await get_mineral_prices(type_id, pool, schema)
     log.debug(f"Got mineral prices")
     
     mineral_price_percentile = {
@@ -94,36 +94,29 @@ async def calculate_ore_value(type_id, database_path):
    
     return ore_price
 
-async def get_mineral_prices(type_id, database_path):
-
+async def get_mineral_prices(type_id, pool: asyncpg.Pool, schema: str):
     mineral_orders = []
     reprocess_ids = await load_reprocess_ids()
 
     for type_id in reprocess_ids:
         log.debug(f"Pulling mineral price for ID {type_id}")
-        orders = await load_mineral_price(type_id, database_path)
+        orders = await load_mineral_price(type_id, pool, schema)
         log.debug(f"Recieved mineral orders")
         mineral_orders.extend(orders)
 
     mineral_prices = defaultdict(list)
     for item in mineral_orders:
         mineral_prices[item["type_id"]].append(item["price"])
-    
+
     return mineral_prices
 
-async def load_mineral_price(type_id, database_path):
-    async with aiosqlite.connect(database_path) as db:
-        db.row_factory = aiosqlite.Row
-
-        query = """
-            SELECT type_id, price
-            FROM mineral_prices
-            WHERE type_id = ?    
-        """
-
-        params = [type_id]
-            
-        async with db.execute(query, tuple(params)) as cursor:
-            rows = await cursor.fetchall()
-            log.debug(f"Returning mineral data for type id {type_id}")
-            return rows
+async def load_mineral_price(type_id, pool: asyncpg.Pool, schema: str):
+    query = f"""
+        SELECT type_id, price
+        FROM {schema}.mineral_prices
+        WHERE type_id = $1
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(query, type_id)
+        log.debug(f"Returning mineral data for type id {type_id}")
+        return rows
