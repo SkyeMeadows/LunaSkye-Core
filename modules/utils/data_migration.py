@@ -9,21 +9,28 @@ MIGRATIONS = [
 ]
 
 async def migrate(src_path, schema, pool):
+    from datetime import datetime, timezone
     src = sqlite3.connect(src_path)
     rows = src.execute("SELECT timestamp, type_id, volume_remain, price, is_buy_order FROM market_orders").fetchall()
-    # SQLite stored timestamps as ISO strings — convert to datetime
-    from datetime import datetime, timezone
+    sqlite_count = len(rows)
     converted = [
         (datetime.fromisoformat(r[0]).replace(tzinfo=timezone.utc), r[1], r[2], r[3], bool(r[4]))
         for r in rows
     ]
+    src.close()
+
     async with pool.acquire() as conn:
         await conn.executemany(
             f"INSERT INTO {schema}.market_orders (timestamp, type_id, volume_remain, price, is_buy_order) VALUES ($1,$2,$3,$4,$5)",
             converted
         )
-    print(f"{schema}: inserted {len(converted)} rows")
-    src.close()
+        pg_count = await conn.fetchval(f"SELECT COUNT(*) FROM {schema}.market_orders")
+
+    print(f"{schema}: SQLite had {sqlite_count:,} rows — PostgreSQL now has {pg_count:,} rows", end="  ")
+    if pg_count >= sqlite_count:
+        print("✓")
+    else:
+        print(f"WARNING: {sqlite_count - pg_count:,} rows missing!")
 
 ALL_SCHEMAS = ["jita", "gsf", "plex"]
 
