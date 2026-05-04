@@ -1,5 +1,6 @@
 import sqlite3, asyncio, asyncpg
 from modules.utils.paths import DB_DSN
+from modules.utils.init_db import init_db
 
 MIGRATIONS = [
     #("/home/skye/LunaSkye-Core/data/jita_market_prices.db", "jita"),
@@ -8,6 +9,8 @@ MIGRATIONS = [
 ]
 
 async def migrate(src_path, schema, pool):
+    init_db(pool, schema)
+
     src = sqlite3.connect(src_path)
     rows = src.execute("SELECT timestamp, type_id, volume_remain, price, is_buy_order FROM market_orders").fetchall()
     # SQLite stored timestamps as ISO strings — convert to datetime
