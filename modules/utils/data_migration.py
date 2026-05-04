@@ -9,7 +9,7 @@ MIGRATIONS = [
 ]
 
 async def migrate(src_path, schema, pool):
-    init_db(pool, schema)
+    await init_db(pool, schema)
 
     src = sqlite3.connect(src_path)
     rows = src.execute("SELECT timestamp, type_id, volume_remain, price, is_buy_order FROM market_orders").fetchall()
