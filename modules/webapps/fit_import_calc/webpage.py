@@ -300,6 +300,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         item_data["marked_up_price"] = item_data["min_price"] * markup_factor
 
     totals["marked_up_price"] = totals["min_price"] * markup_factor
+    totals["profit"] = totals["marked_up_price"] - totals["min_price"]
 
     buy_lists = {"JITA": [], "C-J": []}
     for item_data in item_tracker.values():

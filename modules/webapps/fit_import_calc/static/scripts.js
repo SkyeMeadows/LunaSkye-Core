@@ -87,6 +87,7 @@ function renderResults(parsed, totals, buy_lists) {
                 <tr><th>C-J6MT Market Price</th><td>${Math.round(totals.subtotal_gsf).toLocaleString()}</td></tr>
                 <tr><th>Minimum Obtainable Price</th><td>${Math.round(totals.min_price).toLocaleString()}</td></tr>
                 <tr><th>Marked Up Price (+${totals.markup_pct}%)</th><td>${Math.round(totals.marked_up_price).toLocaleString()}</td></tr>
+                <tr><th>Profit (+${totals.markup_pct}%)</th><td>${Math.round(totals.profit).toLocaleString()}</td></tr>
             </table>
         `;
     }

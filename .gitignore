@@ -9,3 +9,4 @@
 modules/esi/runtime_cache.txt
 .vscode/launch.json
 launch.bat
+modules/webapps/fit_import_calc/Fitting_Tests/*.txt

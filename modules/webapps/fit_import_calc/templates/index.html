@@ -38,6 +38,7 @@
                 <tr><th>C-J6MT Market Price</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Minimum Obtainable Price</th><td>{{ totals.min_price | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Marked Up Price (+{{ totals.markup_pct }}%)</th><td>{{ totals.marked_up_price | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Profit (+{{ totals.markup_pct }}%)</th><td>{{ totals.profit | round | int | string | replace('.', ',') }}</td></tr>
             </table>
         {% endif %}
     </div>
