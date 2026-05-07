@@ -12,7 +12,6 @@ MIGRATIONS = [
 ALL_SCHEMAS = ["jita", "gsf", "plex"]
 SNAPSHOT_HOURS = {0, 4, 8, 12, 16, 20}
 BATCH_SIZE = 10_000
-VACUUM_EVERY = 5  # vacuum SQLite every 50k rows
 
 def keep_row(ts: datetime) -> bool:
     if ts >= datetime.now(timezone.utc) - timedelta(days=30):
@@ -22,13 +21,14 @@ def keep_row(ts: datetime) -> bool:
 
 async def migrate(src_path, schema, pool):
     src = sqlite3.connect(src_path)
+    src.execute("PRAGMA journal_mode=WAL")
+    src.execute("PRAGMA synchronous=NORMAL")
     sqlite_count = src.execute("SELECT COUNT(*) FROM market_orders").fetchone()[0]
     print(f"{schema}: {sqlite_count:,} rows in SQLite, migrating with live deletion...")
 
     last_rowid = 0
     inserted = 0
     skipped = 0
-    batch_num = 0
 
     async with pool.acquire() as conn:
         while True:
@@ -64,11 +64,6 @@ async def migrate(src_path, schema, pool):
             src.execute("DELETE FROM market_orders WHERE rowid BETWEEN ? AND ?",
                         (first_rowid, last_rowid))
             src.commit()
-
-            batch_num += 1
-            if batch_num % VACUUM_EVERY == 0:
-                print(f"\n  {schema}: vacuuming SQLite to reclaim disk space...")
-                src.execute("VACUUM")
 
             print(f"  {schema}: {inserted:,} inserted, {skipped:,} pruned...", end="\r")
 
