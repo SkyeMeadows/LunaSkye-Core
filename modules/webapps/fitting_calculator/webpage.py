@@ -9,7 +9,6 @@ from modules.utils.logging_setup import get_logger
 from modules.utils.paths import REPACKAGED_VOLUME, DB_DSN
 from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
-from modules.esi.image_server import get_image
 
 log = get_logger("FittingImportCalc-Web")
 
@@ -22,9 +21,9 @@ parse_sem = asyncio.Semaphore(2)
 load_dotenv()
 testing_mode = os.getenv("TESTING_MODE")
 if testing_mode == "False":
-    log.info("Running Production Server")
+    log.info("Running Production Server, HTTPS Enforced")
 if testing_mode == "True":
-    log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")   
+    log.warning("Testing Mode, HTTPS NOT ENFORCED")   
 
 async def parse_line(line):
     log.debug(f"Processing line: {line}")

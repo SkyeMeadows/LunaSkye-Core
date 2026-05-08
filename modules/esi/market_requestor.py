@@ -13,7 +13,7 @@ from modules.esi.session_control import load_cache_time, load_esi_token
 from modules.esi.at_manager import establish_esi_session, test_esi_status
 from modules.esi.data_control import save_orders, save_ore_orders, clear_mineral_table, save_mineral_price
 from modules.utils.ore_controller import load_ore_list, calculate_ore_value
-from modules.utils.init_db import init_db
+from modules.db.init_db import init_db
 
 log = get_logger("MarketRequestor")
 

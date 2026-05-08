@@ -2,7 +2,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from datetime import datetime
-from pathlib import Path
 from dotenv import load_dotenv
 from modules.utils.paths import LOGS_DIR
 
@@ -54,8 +53,8 @@ def get_logger(name: str):
     # Debug-level log
     debug_handler = RotatingFileHandler(
         LOG_DIR_PROGRAM / "debug.log",
-        maxBytes=25_000_000,
-        backupCount=5
+        maxBytes=5_000_000,
+        backupCount=3
     )
     debug_handler.setLevel(logging.DEBUG)
     debug_handler.setFormatter(FORMATTER)
@@ -64,7 +63,7 @@ def get_logger(name: str):
     app_handler = RotatingFileHandler(
         LOG_DIR_PROGRAM / "app.log",
         maxBytes=5_000_000,
-        backupCount=5
+        backupCount=3
     )
     app_handler.setLevel(logging.INFO)
     app_handler.setFormatter(FORMATTER)
@@ -73,7 +72,7 @@ def get_logger(name: str):
     error_handler = RotatingFileHandler(
         LOG_DIR_PROGRAM / "error.log",
         maxBytes=5_000_000,
-        backupCount=5
+        backupCount=3
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(FORMATTER)

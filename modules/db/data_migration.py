@@ -1,7 +1,7 @@
 import sqlite3, asyncio, asyncpg
 from datetime import datetime, timezone, timedelta
 from modules.utils.paths import DB_DSN
-from modules.utils.init_db import init_db
+from modules.db.init_db import init_db
 
 MIGRATIONS = [
     ("/home/skye/LunaSkye-Core/data/jita_market_prices.db", "jita"),
