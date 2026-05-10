@@ -20,6 +20,10 @@
         <label>
             Markup Percentage:
             <input type="number" name="markup_pct" value="{{ markup_pct | default(0) }}" min="0" step="0.1">
+        </label><br>
+        <label>
+            Shipping Cost (ISK/m³):
+            <input type="number" name="shipping_cost" value="{{ shipping_cost | default(1200) }}" min="0" step="1">
         </label>
         <button type="submit">Calculate</button>
     </form>

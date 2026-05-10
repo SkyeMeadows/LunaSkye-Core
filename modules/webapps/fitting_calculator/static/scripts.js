@@ -19,6 +19,13 @@ form.addEventListener("submit", async (e) => {
 
     const formData = new FormData(form);
 
+    const shippingCostInput = form.querySelector('[name="shipping_cost"]');
+    const shippingCost = parseFloat(shippingCostInput.value);
+    if (isNaN(shippingCost) || shippingCost < 0) {
+        shippingCostInput.value = 1200;
+        formData.set("shipping_cost", 1200);
+    }
+
     const response = await fetch("/stream", {
         method: "POST",
         body: formData

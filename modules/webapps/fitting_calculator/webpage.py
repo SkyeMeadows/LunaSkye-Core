@@ -25,7 +25,8 @@ if testing_mode == "False":
 if testing_mode == "True":
     log.warning("Testing Mode, HTTPS NOT ENFORCED")   
 
-async def parse_line(line):
+async def parse_line(line, shipping_cost=900.0):
+    assert db_pool is not None
     log.debug(f"Processing line: {line}")
     line = line.strip()
     if not line:
@@ -82,7 +83,7 @@ async def parse_line(line):
         for item in volume_data:
             if isinstance(item, dict) and item.get('id') == item_id:
                 exists = True
-                item_volume = item.get('volume')
+                item_volume = item.get('volume') or 0
                 break
     elif isinstance(volume_data, dict):
         log.debug(f"Item {item_id} ({name}) item has volume data in dict")
@@ -90,14 +91,14 @@ async def parse_line(line):
             exists = True
             item_volume = volume_data[str(item_id)]
     else:
-        log.warning(f"Item {item_id} ({item}) does NOT have volume data")
+        log.warning(f"Item {item_id} ({name}) does NOT have volume data")
     
-    volume_per_unit = item_volume if exists else volume_pull
+    volume_per_unit = item_volume if exists else (volume_pull or 0)
     volume = volume_per_unit * qty
    
     log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
 
-    import_cost = (price_jita * qty) + (volume * 1200)
+    import_cost = (price_jita * qty) + (volume * shipping_cost)
 
     if subtotal_gsf == 0:
         subtotal_gsf = import_cost
@@ -170,7 +171,7 @@ async def split_into_blocks(text, include_hull=True):
 
     return blocks
 
-async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
+async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0, shipping_cost=1200.0):
     blocks = await split_into_blocks(text, include_hull=include_hull)
 
     offset = 0 if include_hull else 1
@@ -198,7 +199,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         
         for line in block:
             log.debug(f"Parsing line: {line}")
-            item = await parse_line(line)
+            item = await parse_line(line, shipping_cost=shipping_cost)
             log.debug(f"Parsed line as {item}")
             processed += 1
             log.debug(f"Added 1 to processed")
@@ -228,7 +229,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
 
                     volume_per_unit = item_tracker[item_id]["volume_per_unit"]
                     volume_total = volume_per_unit * new_qty
-                    import_cost_total = (item_tracker[item_id]["price_jita"] * new_qty) + (volume_total * 1200)
+                    import_cost_total = (item_tracker[item_id]["price_jita"] * new_qty) + (volume_total * shipping_cost)
                     markup_total = (
                         item_tracker[item_id]["subtotal_gsf"] - import_cost_total
                         if item_tracker[item_id]["subtotal_gsf"] != 0
@@ -342,7 +343,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
     }
 
 app = Quart(__name__)
-db_pool: asyncpg.Pool = None
+db_pool: asyncpg.Pool | None = None
 
 @app.before_serving
 async def startup():
@@ -351,12 +352,14 @@ async def startup():
 
 @app.after_serving
 async def shutdown():
-    await db_pool.close()
+    if db_pool is not None:
+        await db_pool.close()
 @app.route("/", methods=["GET", "POST"])
 async def index():
     include_hull = False
     copies = 1
     markup_pct = 0.0
+    shipping_cost = 1200.0
     user_input = ""
     parsed = {}
     totals = {}
@@ -367,13 +370,14 @@ async def index():
         user_input = form.get("fitting", "")
         copies = int(form.get("copies", 1))
         markup_pct = float(form.get("markup_pct", 0.0))
+        shipping_cost = float(form.get("shipping_cost", 1200.0))
         if user_input.strip():
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost):
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
                     buy_lists = event.get("buy_lists", {"JITA": [], "C-J": []})
-    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, user_input=user_input, buy_lists=buy_lists)
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, buy_lists=buy_lists)
 
 @app.route("/stream", methods=["POST"])
 async def stream():
@@ -382,12 +386,13 @@ async def stream():
     include_hull = 'include_hull' in form
     copies = int(form.get("copies", 1))
     markup_pct = float(form.get("markup_pct", 0.0))
+    shipping_cost = float(form.get("shipping_cost", 1200.0))
 
     async def generate():
         try:
             item_count = 0
 
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost):
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
@@ -424,4 +429,7 @@ async def enforce_https():
         return redirect(url, code=301)    
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
+    if testing_mode:
+        app.run(debug=True, host="0.0.0.0", port=5002)
+    if not testing_mode:
+        app.run(debug=False, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
