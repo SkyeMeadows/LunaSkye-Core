@@ -1,4 +1,5 @@
 const form = document.getElementById("fit-form");
+
 const progressContainer = document.getElementById("progress-container");
 const progressBar = document.getElementById("progress-bar");
 const statusText = document.getElementById("status-text");
@@ -6,6 +7,7 @@ const resultsDiv = document.getElementById("results");
 const totalsDiv = document.getElementById("totals");
 const buyRecDiv = document.getElementById("buy-recommendations");
 
+if (form) {
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -78,6 +80,118 @@ form.addEventListener("submit", async (e) => {
         if (done) break;
     }
 });
+} // end if (form)
+
+// --- General Import ---
+const generalForm = document.getElementById("general-form");
+if (generalForm) {
+    const generalProgress = document.getElementById("general-progress-container");
+    const generalBar = document.getElementById("general-progress-bar");
+    const generalStatus = document.getElementById("general-status-text");
+    const generalTotals = document.getElementById("general-totals");
+    const generalResults = document.getElementById("general-results");
+
+    generalForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        generalProgress.style.display = "block";
+        generalBar.value = 0;
+        generalStatus.textContent = "Starting...";
+        generalTotals.innerHTML = "";
+        generalResults.innerHTML = "";
+
+        const formData = new FormData(generalForm);
+        const shippingInput = generalForm.querySelector('[name="shipping_cost"]');
+        const shippingVal = parseFloat(shippingInput.value);
+        if (isNaN(shippingVal) || shippingVal < 0) {
+            shippingInput.value = 1200;
+            formData.set("shipping_cost", 1200);
+        }
+
+        const response = await fetch("/general/stream", { method: "POST", body: formData });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { value, done } = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const msg = JSON.parse(line);
+                if (msg.type === "progress") {
+                    generalBar.value = (msg.current / msg.total) * 100;
+                    generalStatus.textContent = `Processing ${msg.current} / ${msg.total}: ${msg.item}`;
+                } else if (msg.type === "done") {
+                    generalBar.value = 100;
+                    generalStatus.textContent = "Done!";
+                    renderGeneralResults(msg.items, msg.totals);
+                } else if (msg.type === "error") {
+                    generalStatus.textContent = `Error: ${msg.message}`;
+                }
+            }
+
+            if (done && buffer.trim()) {
+                const msg = JSON.parse(buffer);
+                if (msg.type === "done") {
+                    generalBar.value = 100;
+                    generalStatus.textContent = "Done!";
+                    renderGeneralResults(msg.items, msg.totals);
+                } else if (msg.type === "error") {
+                    generalStatus.textContent = `Error: ${msg.message}`;
+                }
+            }
+            if (done) break;
+        }
+    });
+}
+
+function fmt(n) {
+    return Math.round(n).toLocaleString('en-US');
+}
+
+function renderGeneralResults(items, totals) {
+    const generalTotals = document.getElementById("general-totals");
+    const generalResults = document.getElementById("general-results");
+
+    if (totals) {
+        generalTotals.innerHTML = `
+            <h2>Totals</h2>
+            <table>
+                <tr><th>Total Volume (m³)</th><td>${fmt(totals.volume)}</td></tr>
+                <tr><th>Jita Buy Cost</th><td>${fmt(totals.subtotal_jita)}</td></tr>
+                <tr><th>Total Import Cost (Jita + Shipping)</th><td>${fmt(totals.import_cost)}</td></tr>
+                <tr><th>C-J6MT Sell Value</th><td>${fmt(totals.subtotal_gsf)}</td></tr>
+                <tr><th>Profit</th><td>${fmt(totals.profit)}</td></tr>
+            </table>`;
+    }
+
+    if (items && items.length > 0) {
+        let html = `<h2>Items</h2><table>
+            <tr>
+                <th>Icon</th><th>Name</th><th>Qty</th><th>Volume (m³)</th>
+                <th>Jita Buy Price</th><th>C-J6MT Sell Price</th>
+                <th>Import Cost</th><th>Profit</th>
+            </tr>`;
+        for (const item of items) {
+            html += `<tr>
+                <td><img src="${item.icon}" alt="${item.name} icon" width="32" height="32"></td>
+                <td>${item.name}</td>
+                <td>${fmt(item.qty)}</td>
+                <td>${fmt(item.volume)}</td>
+                <td>${fmt(item.subtotal_jita)}</td>
+                <td>${fmt(item.subtotal_gsf)}</td>
+                <td>${fmt(item.import_cost)}</td>
+                <td>${fmt(item.markup)}</td>
+            </tr>`;
+        }
+        html += "</table>";
+        generalResults.innerHTML = html;
+    }
+}
 
 function renderResults(parsed, totals, buy_lists) {
     console.log("renderResults called with parsed:", parsed);
