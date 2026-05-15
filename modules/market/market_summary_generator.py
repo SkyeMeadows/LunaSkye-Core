@@ -21,7 +21,7 @@ from modules.utils.paths import ITEM_IDS_FILE, DB_DSN
 
 log = get_logger("MarketSummaryGenerator")
 
-items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+items_df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
 
 async def match_item_name(type_id: int):
     matched_row = items_df[items_df["typeID"] == type_id]
