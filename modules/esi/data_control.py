@@ -12,10 +12,11 @@ async def save_orders(pool: asyncpg.Pool, schema: str, orders, fetched_time):
         for order in orders
     ]
     async with pool.acquire() as conn:
-        await conn.executemany(f"""
-            INSERT INTO {schema}.market_orders (timestamp, type_id, volume_remain, price, is_buy_order)
-            VALUES ($1, $2, $3, $4, $5)
-        """, rows_to_insert)
+        async with conn.transaction():
+            await conn.executemany(f"""
+                INSERT INTO {schema}.market_orders (timestamp, type_id, volume_remain, price, is_buy_order)
+                VALUES ($1, $2, $3, $4, $5)
+            """, rows_to_insert)
 
 async def pull_recent_data(type_id, pool: asyncpg.Pool, schema: str):
     query = f"""

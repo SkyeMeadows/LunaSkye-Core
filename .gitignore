@@ -11,3 +11,6 @@ modules/esi/runtime_cache.txt
 launch.bat
 modules/webapps/fit_import_calc/Fitting_Tests/*.txt
 .claude/settings.local.json
+/.vs
+/LunaSkye-Core.sln
+/LunaSkye-Core.pyproj
