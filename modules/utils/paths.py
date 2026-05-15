@@ -36,6 +36,7 @@ GRAPHS_TEMP_DIR = TEMP_DIR / "graphs"
 
 ITEM_IDS_FILE        = DATA_DIR / "Item_IDs.csv"
 ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
+TYPE_DICT            = DATA_DIR / "TypeDictionary.csv"
 ORE_LIST             = DATA_DIR / "ore_list.json"
 ICE_PRODUCT_LIST     = DATA_DIR / "ice_product_list.json"
 REPROCESS_YIELD      = DATA_DIR / "reprocess_yield.json"

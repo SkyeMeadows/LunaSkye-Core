@@ -17,11 +17,11 @@ if __name__ == "__main__":
 from modules.market.market_utils import get_market_schema
 from modules.utils.logging_setup import get_logger
 from modules.esi.data_control import lowest_price_per_day
-from modules.utils.paths import ITEM_IDS_FILE, DB_DSN
+from modules.utils.paths import TYPE_DICT, DB_DSN
 
 log = get_logger("MarketSummaryGenerator")
 
-items_df = pd.read_csv(TYPE_DICTIONARY_FILE).drop_duplicates(subset="typeID")
+items_df = pd.read_csv(TYPE_DICT)
 
 async def match_item_name(type_id: int):
     matched_row = items_df[items_df["typeID"] == type_id]

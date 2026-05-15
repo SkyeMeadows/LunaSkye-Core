@@ -17,14 +17,14 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import GRAPHS_TEMP_DIR, ITEM_IDS_FILE, DB_DSN
+from modules.utils.paths import GRAPHS_TEMP_DIR, TYPE_DICT, DB_DSN
 from modules.market.market_utils import get_market_schema
 
 log = get_logger("GraphGenerator")
 
 mpl.set_loglevel("warning")
 
-items_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+items_df = pd.read_csv(TYPE_DICT)
 
 def format_price(value, pos):
     if value >= 1e9:

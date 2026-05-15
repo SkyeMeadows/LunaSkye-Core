@@ -11,7 +11,7 @@ from collections import defaultdict
 import time
 import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_FILE, PROJECT_ROOT, PRICE_CHECKER
+from modules.utils.paths import TYPE_DICT, PROJECT_ROOT, PRICE_CHECKER
 from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
 
