@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}EVE Import Tools{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=2">
+</head>
+<body>
+    <nav class="top-nav">
+        <a href="/" class="nav-tab {% if active_page == 'fitting' %}active{% endif %}">Fitting Calculator</a>
+        <a href="/general" class="nav-tab {% if active_page == 'general' %}active{% endif %}">General Import</a>
+    </nav>
+
+    {% block content %}{% endblock %}
+
+    <script src="{{ url_for('static', filename='scripts.js') }}?v=2"></script>
+</body>
+</html>

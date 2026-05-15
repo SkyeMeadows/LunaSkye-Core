@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}General Import Calculator{% endblock %}
+{% block content %}
+    <h1>General Import Calculator</h1>
+
+    <form id="general-form" method="post" action="/general">
+        <textarea name="items" rows="15" placeholder="Paste items here, one per line. e.g.:&#10;Tritanium x1000&#10;Mexallon x500">{{ user_input | e }}</textarea>
+        <label>
+            Markup Percentage:
+            <input type="number" name="markup_pct" value="{{ markup_pct | default(0) }}" min="0" step="0.1">
+        </label><br>
+        <label>
+            Shipping Cost (ISK/m³):
+            <input type="number" name="shipping_cost" value="{{ shipping_cost | default(1200) }}" min="0" step="1">
+        </label>
+        <button type="submit">Calculate</button>
+    </form>
+
+    <div id="general-progress-container" style="display:none;">
+        <progress id="general-progress-bar" value="0" max="100"></progress>
+        <div id="general-status-text"></div>
+    </div>
+
+    <div id="general-totals">
+        {% if totals %}
+            <h2>Totals</h2>
+            <table>
+                <tr><th>Total Volume (m³)</th><td>{{ totals.volume | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Jita Buy Cost</th><td>{{ totals.subtotal_jita | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Total Import Cost (Jita + Shipping)</th><td>{{ totals.import_cost | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>C-J6MT Sell Value</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Profit</th><td>{{ totals.profit | round | int | string | replace('.', ',') }}</td></tr>
+            </table>
+        {% endif %}
+    </div>
+
+    <div id="general-results">
+        {% if items %}
+            <h2>Items</h2>
+            <table>
+                <tr>
+                    <th>Icon</th>
+                    <th>Name</th>
+                    <th>Qty</th>
+                    <th>Volume (m³)</th>
+                    <th>Jita Buy Price</th>
+                    <th>C-J6MT Sell Price</th>
+                    <th>Import Cost</th>
+                    <th>Profit</th>
+                </tr>
+                {% for item in items %}
+                    <tr>
+                        <td><img src="{{ item.icon }}" alt="{{ item.name }} icon" width="32" height="32"></td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.qty | int | string | replace('.', ',') }}</td>
+                        <td>{{ item.volume | int | string | replace('.', ',') }}</td>
+                        <td>{{ item.subtotal_jita | round | int | string | replace('.', ',') }}</td>
+                        <td>{{ item.subtotal_gsf | round | int | string | replace('.', ',') }}</td>
+                        <td>{{ item.import_cost | round | int | string | replace('.', ',') }}</td>
+                        <td>{{ item.markup | round | int | string | replace('.', ',') }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+    </div>
+{% endblock %}

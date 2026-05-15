@@ -342,6 +342,97 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0, 
         "buy_lists": buy_lists
     }
 
+async def parse_general_stream(text, markup_pct=0.0, shipping_cost=1200.0):
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    total_items = len(lines)
+    processed = 0
+
+    item_tracker = {}
+
+    totals = {
+        "qty": 0,
+        "subtotal_jita": 0.0,
+        "subtotal_gsf": 0.0,
+        "import_cost": 0.0,
+        "volume": 0.0,
+        "profit": 0.0,
+        "markup_pct": markup_pct,
+    }
+
+    for line in lines:
+        item = await parse_line(line, shipping_cost=shipping_cost)
+        processed += 1
+        yield {
+            "type": "progress",
+            "current": processed,
+            "total": total_items,
+            "item": line,
+            "icon": item.get("icon", "") if item else ""
+        }
+
+        if item and item["id"] is not None:
+            item_id = item["id"]
+            if item_id in item_tracker:
+                old_qty = item_tracker[item_id]["qty"]
+                new_qty = old_qty + item["qty"]
+                item_tracker[item_id]["qty"] = new_qty
+                item_tracker[item_id]["subtotal_jita"] = item_tracker[item_id]["price_jita"] * new_qty
+                item_tracker[item_id]["subtotal_gsf"] = item_tracker[item_id]["price_gsf"] * new_qty
+                vol_total = item_tracker[item_id]["volume_per_unit"] * new_qty
+                ic_total = (item_tracker[item_id]["price_jita"] * new_qty) + (vol_total * shipping_cost)
+                item_tracker[item_id]["volume"] = vol_total
+                item_tracker[item_id]["import_cost"] = ic_total
+                item_tracker[item_id]["markup"] = item_tracker[item_id]["subtotal_gsf"] - ic_total
+            else:
+                item_tracker[item_id] = {
+                    "name": item["name"],
+                    "qty": item["qty"],
+                    "id": item_id,
+                    "price_jita": item["price_jita"],
+                    "price_gsf": item["price_gsf"],
+                    "volume_per_unit": item["volume_per_unit"],
+                    "subtotal_jita": item["subtotal_jita"],
+                    "subtotal_gsf": item["subtotal_gsf"],
+                    "volume": item["volume"],
+                    "import_cost": item["import_cost"],
+                    "markup": item["markup"],
+                    "icon": item["icon"],
+                }
+
+            totals["qty"] += item["qty"]
+            totals["subtotal_jita"] += item["subtotal_jita"]
+            totals["subtotal_gsf"] += item["subtotal_gsf"]
+            totals["import_cost"] += item["import_cost"]
+            totals["volume"] += item["volume"]
+            totals["profit"] += item["markup"]
+
+    markup_factor = 1 + (markup_pct / 100)
+    totals["subtotal_gsf"] *= markup_factor
+    totals["profit"] = totals["subtotal_gsf"] - totals["import_cost"]
+
+    items_list = []
+    for item_data in item_tracker.values():
+        item_data["subtotal_gsf"] *= markup_factor
+        item_data["markup"] = item_data["subtotal_gsf"] - item_data["import_cost"]
+        items_list.append({
+            "name": item_data["name"],
+            "qty": item_data["qty"],
+            "id": item_data["id"],
+            "subtotal_jita": item_data["subtotal_jita"],
+            "subtotal_gsf": item_data["subtotal_gsf"],
+            "volume": item_data["volume"],
+            "import_cost": item_data["import_cost"],
+            "markup": item_data["markup"],
+            "icon": item_data["icon"],
+        })
+
+    yield {
+        "type": "done",
+        "items": items_list,
+        "totals": totals,
+    }
+
+
 app = Quart(__name__)
 db_pool: asyncpg.Pool | None = None
 
@@ -377,7 +468,7 @@ async def index():
                     parsed = event["parsed"]
                     totals = event["totals"]
                     buy_lists = event.get("buy_lists", {"JITA": [], "C-J": []})
-    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, buy_lists=buy_lists)
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, buy_lists=buy_lists, active_page="fitting")
 
 @app.route("/stream", methods=["POST"])
 async def stream():
@@ -419,6 +510,49 @@ async def stream():
         },
     )
 
+
+@app.route("/general", methods=["GET", "POST"])
+async def general():
+    markup_pct = 0.0
+    shipping_cost = 1200.0
+    user_input = ""
+    items = []
+    totals = {}
+    if request.method == "POST":
+        form = await request.form
+        user_input = form.get("items", "")
+        markup_pct = float(form.get("markup_pct", 0.0))
+        shipping_cost = float(form.get("shipping_cost", 1200.0))
+        if user_input.strip():
+            async for event in parse_general_stream(user_input, markup_pct=markup_pct, shipping_cost=shipping_cost):
+                if event["type"] == "done":
+                    items = event["items"]
+                    totals = event["totals"]
+    return await render_template("general.html", items=items, totals=totals, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, active_page="general")
+
+@app.route("/general/stream", methods=["POST"])
+async def general_stream():
+    form = await request.form
+    user_input = form.get("items", "")
+    markup_pct = float(form.get("markup_pct", 0.0))
+    shipping_cost = float(form.get("shipping_cost", 1200.0))
+
+    async def generate():
+        try:
+            async for event in parse_general_stream(user_input, markup_pct=markup_pct, shipping_cost=shipping_cost):
+                yield json.dumps(event, separators=(",", ":")) + "\n"
+                await asyncio.sleep(0.01)
+        except Exception as e:
+            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+
+    return Response(
+        generate(),
+        mimetype="application/json",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.before_request
 async def enforce_https():
