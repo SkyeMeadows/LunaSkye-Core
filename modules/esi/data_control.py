@@ -1,7 +1,7 @@
 import asyncpg
 import pandas as pd
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import TYPE_DICTIONARY_FILE
+from modules.utils.paths import TYPE_DICT
 from modules.utils.ore_controller import load_reprocess_ids
 
 log = get_logger("DataControl")
@@ -90,7 +90,7 @@ async def pull_fitting_price_data(type_id, pool: asyncpg.Pool, schema: str):
         return row
 
 async def get_volume(type_id):
-    df = pd.read_csv(TYPE_DICTIONARY_FILE)
+    df = pd.read_csv(TYPE_DICT)
     result = df[df['typeID'] == type_id]['volume']
     return float(result.iloc[0])
 
