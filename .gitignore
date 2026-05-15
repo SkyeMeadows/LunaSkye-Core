@@ -14,3 +14,4 @@ modules/webapps/fit_import_calc/Fitting_Tests/*.txt
 /.vs
 /LunaSkye-Core.sln
 /LunaSkye-Core.pyproj
+/LunaSkye-Core.pyproj.user
