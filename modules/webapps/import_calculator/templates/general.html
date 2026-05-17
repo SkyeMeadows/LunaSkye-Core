@@ -26,7 +26,7 @@
             <h2>Totals</h2>
             <table>
                 <tr><th>Total Volume (m³)</th><td>{{ totals.volume | int | string | replace('.', ',') }}</td></tr>
-                <tr><th>Jita Buy Cost</th><td>{{ totals.subtotal_jita | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Jita Sell Cost</th><td>{{ totals.subtotal_jita | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Total Import Cost (Jita + Shipping)</th><td>{{ totals.import_cost | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>C-J6MT Sell Value</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Profit</th><td>{{ totals.profit | round | int | string | replace('.', ',') }}</td></tr>
@@ -43,9 +43,9 @@
                     <th>Name</th>
                     <th>Qty</th>
                     <th>Volume (m³)</th>
-                    <th>Jita Buy Price</th>
+                    <th>Jita Sell Price</th>
                     <th>C-J6MT Sell Price</th>
-                    <th>Import Cost</th>
+                    <th>Import Cost (Sell)</th>
                     <th>Profit</th>
                 </tr>
                 {% for item in items %}

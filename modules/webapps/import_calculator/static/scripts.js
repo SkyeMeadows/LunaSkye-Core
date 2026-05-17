@@ -162,7 +162,7 @@ function renderGeneralResults(items, totals) {
             <h2>Totals</h2>
             <table>
                 <tr><th>Total Volume (m³)</th><td>${fmt(totals.volume)}</td></tr>
-                <tr><th>Jita Buy Cost</th><td>${fmt(totals.subtotal_jita)}</td></tr>
+                <tr><th>Jita Sell Cost</th><td>${fmt(totals.subtotal_jita)}</td></tr>
                 <tr><th>Total Import Cost (Jita + Shipping)</th><td>${fmt(totals.import_cost)}</td></tr>
                 <tr><th>C-J6MT Sell Value</th><td>${fmt(totals.subtotal_gsf)}</td></tr>
                 <tr><th>Profit</th><td>${fmt(totals.profit)}</td></tr>
@@ -173,7 +173,7 @@ function renderGeneralResults(items, totals) {
         let html = `<h2>Items</h2><table>
             <tr>
                 <th>Icon</th><th>Name</th><th>Qty</th><th>Volume (m³)</th>
-                <th>Jita Buy Price</th><th>C-J6MT Sell Price</th>
+                <th>Jita Sell Price</th><th>C-J6MT Sell Price</th>
                 <th>Import Cost</th><th>Profit</th>
             </tr>`;
         for (const item of items) {
