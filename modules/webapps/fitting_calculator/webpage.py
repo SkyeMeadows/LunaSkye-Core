@@ -3,10 +3,11 @@ import json
 import asyncio
 import asyncpg
 import os
+import pandas as pd
 from dotenv import load_dotenv
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import REPACKAGED_VOLUME, DB_DSN
+from modules.utils.paths import TYPE_DICT, DB_DSN
 from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
 
@@ -70,9 +71,9 @@ async def parse_line(line, shipping_cost=900.0):
         subtotal_gsf = price_gsf * qty
     
     
-
-    with open(REPACKAGED_VOLUME, 'r') as file:
-        volume_data = json.load(file)
+    log.debug(f"Pulling volume data from {TYPE_DICT}")
+    volume_data = pd.read_csv(TYPE_DICT)
+    log.debug(f"Volume Data loaded")
     
     volume_pull = await get_volume(item_id)
 
