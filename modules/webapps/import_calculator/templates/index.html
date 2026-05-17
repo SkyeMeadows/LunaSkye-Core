@@ -1,10 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Fitting Parser</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Fitting Calculator{% endblock %}
+{% block content %}
     <h1>Fitting Parser</h1>
 
     <form id="fit-form">
@@ -20,6 +16,10 @@
         <label>
             Markup Percentage:
             <input type="number" name="markup_pct" value="{{ markup_pct | default(0) }}" min="0" step="0.1">
+        </label><br>
+        <label>
+            Shipping Cost (ISK/m³):
+            <input type="number" name="shipping_cost" value="{{ shipping_cost | default(1200) }}" min="0" step="1">
         </label>
         <button type="submit">Calculate</button>
     </form>
@@ -38,6 +38,7 @@
                 <tr><th>C-J6MT Market Price</th><td>{{ totals.subtotal_gsf | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Minimum Obtainable Price</th><td>{{ totals.min_price | round | int | string | replace('.', ',') }}</td></tr>
                 <tr><th>Marked Up Price (+{{ totals.markup_pct }}%)</th><td>{{ totals.marked_up_price | round | int | string | replace('.', ',') }}</td></tr>
+                <tr><th>Profit (+{{ totals.markup_pct }}%)</th><td>{{ totals.profit | round | int | string | replace('.', ',') }}</td></tr>
             </table>
         {% endif %}
     </div>
@@ -62,7 +63,7 @@
                 {% set max_len = [buy_lists['C-J']|length] | max %}
                 {% for i in range(max_len) %}
                     <tr>
-                        <td>{% if buy_lists['C-J'][i] %}{{ buy_lists['C-J'][i].name }} x{{ buy_lists['C-J'][i].qty | thousands }}{% endif %}</td>                    
+                        <td>{% if buy_lists['C-J'][i] %}{{ buy_lists['C-J'][i].name }} x{{ buy_lists['C-J'][i].qty | thousands }}{% endif %}</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -104,7 +105,4 @@
             {% endfor %}
         {% endif %}
     </div>
-
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
-</body>
-</html>
+{% endblock %}

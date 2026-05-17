@@ -1,6 +1,5 @@
 import requests
 import base64
-from io import BytesIO
 from modules.utils.logging_setup import get_logger
 
 log = get_logger("testing_images")

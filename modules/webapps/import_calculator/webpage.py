@@ -1,16 +1,17 @@
 import re
 import json
 import asyncio
+import asyncpg
 import os
+import pandas as pd
 from dotenv import load_dotenv
 from quart import Quart, request, Response, render_template, redirect
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import MARKET_DB_FILE_GSF, MARKET_DB_FILE_JITA, REPACKAGED_VOLUME
+from modules.utils.paths import TYPE_DICT, DB_DSN
 from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
-from modules.esi.image_server import get_image
 
-log = get_logger("FittingImportCalc-Web")
+log = get_logger("ImportCalculator-Web")
 
 SECTION_NAMES = ["Ship", "Low", "Medium", "High", "Rigs", "Drones/Cargo", "Extra Cargo"]
 
@@ -21,11 +22,12 @@ parse_sem = asyncio.Semaphore(2)
 load_dotenv()
 testing_mode = os.getenv("TESTING_MODE")
 if testing_mode == "False":
-    log.info("Running Production Server")
+    log.info("Running Production Server, HTTPS Enforced")
 if testing_mode == "True":
-    log.warning("IN TESTING MODE, DO NOT USE IN PRODUCTION")   
+    log.warning("Testing Mode, HTTPS NOT ENFORCED")   
 
-async def parse_line(line):
+async def parse_line(line, shipping_cost=900.0):
+    assert db_pool is not None
     log.debug(f"Processing line: {line}")
     line = line.strip()
     if not line:
@@ -54,7 +56,7 @@ async def parse_line(line):
 
     price_jita = 0
     subtotal_jita = 0
-    price_pull_jita = await pull_fitting_price_data(item_id, MARKET_DB_FILE_JITA)
+    price_pull_jita = await pull_fitting_price_data(item_id, db_pool, "jita")
     log.debug(f"Pulled price data for Jita: {price_pull_jita}")
     if price_pull_jita:
         price_jita = price_pull_jita[3]
@@ -62,16 +64,16 @@ async def parse_line(line):
 
     price_gsf = 0
     subtotal_gsf = 0
-    price_pull_gsf = await pull_fitting_price_data(item_id, MARKET_DB_FILE_GSF)
+    price_pull_gsf = await pull_fitting_price_data(item_id, db_pool, "gsf")
     log.debug(f"Pulled price data for GSF: {price_pull_gsf}")
     if price_pull_gsf:
         price_gsf = price_pull_gsf[3]
         subtotal_gsf = price_gsf * qty
     
     
-
-    with open(REPACKAGED_VOLUME, 'r') as file:
-        volume_data = json.load(file)
+    log.debug(f"Pulling volume data from {TYPE_DICT}")
+    volume_data = pd.read_csv(TYPE_DICT)
+    log.debug(f"Volume Data loaded")
     
     volume_pull = await get_volume(item_id)
 
@@ -82,7 +84,7 @@ async def parse_line(line):
         for item in volume_data:
             if isinstance(item, dict) and item.get('id') == item_id:
                 exists = True
-                item_volume = item.get('volume')
+                item_volume = item.get('volume') or 0
                 break
     elif isinstance(volume_data, dict):
         log.debug(f"Item {item_id} ({name}) item has volume data in dict")
@@ -90,14 +92,14 @@ async def parse_line(line):
             exists = True
             item_volume = volume_data[str(item_id)]
     else:
-        log.warning(f"Item {item_id} ({item}) does NOT have volume data")
+        log.warning(f"Item {item_id} ({name}) does NOT have volume data")
     
-    volume_per_unit = item_volume if exists else volume_pull
+    volume_per_unit = item_volume if exists else (volume_pull or 0)
     volume = volume_per_unit * qty
    
     log.debug(f"Got volume for item {item_id} ({name}) as: {volume}")
 
-    import_cost = (price_jita * qty) + (volume * 1200)
+    import_cost = (price_jita * qty) + (volume * shipping_cost)
 
     if subtotal_gsf == 0:
         subtotal_gsf = import_cost
@@ -170,7 +172,7 @@ async def split_into_blocks(text, include_hull=True):
 
     return blocks
 
-async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
+async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0, shipping_cost=1200.0):
     blocks = await split_into_blocks(text, include_hull=include_hull)
 
     offset = 0 if include_hull else 1
@@ -198,7 +200,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         
         for line in block:
             log.debug(f"Parsing line: {line}")
-            item = await parse_line(line)
+            item = await parse_line(line, shipping_cost=shipping_cost)
             log.debug(f"Parsed line as {item}")
             processed += 1
             log.debug(f"Added 1 to processed")
@@ -228,7 +230,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
 
                     volume_per_unit = item_tracker[item_id]["volume_per_unit"]
                     volume_total = volume_per_unit * new_qty
-                    import_cost_total = (item_tracker[item_id]["price_jita"] * new_qty) + (volume_total * 1200)
+                    import_cost_total = (item_tracker[item_id]["price_jita"] * new_qty) + (volume_total * shipping_cost)
                     markup_total = (
                         item_tracker[item_id]["subtotal_gsf"] - import_cost_total
                         if item_tracker[item_id]["subtotal_gsf"] != 0
@@ -299,6 +301,7 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         item_data["marked_up_price"] = item_data["min_price"] * markup_factor
 
     totals["marked_up_price"] = totals["min_price"] * markup_factor
+    totals["profit"] = totals["marked_up_price"] - totals["min_price"]
 
     buy_lists = {"JITA": [], "C-J": []}
     for item_data in item_tracker.values():
@@ -340,12 +343,115 @@ async def parse_input_stream(text, include_hull=True, copies=1, markup_pct=0.0):
         "buy_lists": buy_lists
     }
 
+async def parse_general_stream(text, markup_pct=0.0, shipping_cost=1200.0):
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    total_items = len(lines)
+    processed = 0
+
+    item_tracker = {}
+
+    totals = {
+        "qty": 0,
+        "subtotal_jita": 0.0,
+        "subtotal_gsf": 0.0,
+        "import_cost": 0.0,
+        "volume": 0.0,
+        "profit": 0.0,
+        "markup_pct": markup_pct,
+    }
+
+    for line in lines:
+        item = await parse_line(line, shipping_cost=shipping_cost)
+        processed += 1
+        yield {
+            "type": "progress",
+            "current": processed,
+            "total": total_items,
+            "item": line,
+            "icon": item.get("icon", "") if item else ""
+        }
+
+        if item and item["id"] is not None:
+            item_id = item["id"]
+            if item_id in item_tracker:
+                old_qty = item_tracker[item_id]["qty"]
+                new_qty = old_qty + item["qty"]
+                item_tracker[item_id]["qty"] = new_qty
+                item_tracker[item_id]["subtotal_jita"] = item_tracker[item_id]["price_jita"] * new_qty
+                item_tracker[item_id]["subtotal_gsf"] = item_tracker[item_id]["price_gsf"] * new_qty
+                vol_total = item_tracker[item_id]["volume_per_unit"] * new_qty
+                ic_total = (item_tracker[item_id]["price_jita"] * new_qty) + (vol_total * shipping_cost)
+                item_tracker[item_id]["volume"] = vol_total
+                item_tracker[item_id]["import_cost"] = ic_total
+                item_tracker[item_id]["markup"] = item_tracker[item_id]["subtotal_gsf"] - ic_total
+            else:
+                item_tracker[item_id] = {
+                    "name": item["name"],
+                    "qty": item["qty"],
+                    "id": item_id,
+                    "price_jita": item["price_jita"],
+                    "price_gsf": item["price_gsf"],
+                    "volume_per_unit": item["volume_per_unit"],
+                    "subtotal_jita": item["subtotal_jita"],
+                    "subtotal_gsf": item["subtotal_gsf"],
+                    "volume": item["volume"],
+                    "import_cost": item["import_cost"],
+                    "markup": item["markup"],
+                    "icon": item["icon"],
+                }
+
+            totals["qty"] += item["qty"]
+            totals["subtotal_jita"] += item["subtotal_jita"]
+            totals["subtotal_gsf"] += item["subtotal_gsf"]
+            totals["import_cost"] += item["import_cost"]
+            totals["volume"] += item["volume"]
+            totals["profit"] += item["markup"]
+
+    markup_factor = 1 + (markup_pct / 100)
+    totals["subtotal_gsf"] *= markup_factor
+    totals["profit"] = totals["subtotal_gsf"] - totals["import_cost"]
+
+    items_list = []
+    for item_data in item_tracker.values():
+        item_data["subtotal_gsf"] *= markup_factor
+        item_data["markup"] = item_data["subtotal_gsf"] - item_data["import_cost"]
+        items_list.append({
+            "name": item_data["name"],
+            "qty": item_data["qty"],
+            "id": item_data["id"],
+            "subtotal_jita": item_data["subtotal_jita"],
+            "subtotal_gsf": item_data["subtotal_gsf"],
+            "volume": item_data["volume"],
+            "import_cost": item_data["import_cost"],
+            "markup": item_data["markup"],
+            "icon": item_data["icon"],
+        })
+
+    yield {
+        "type": "done",
+        "items": items_list,
+        "totals": totals,
+    }
+
+
 app = Quart(__name__)
+db_pool: asyncpg.Pool | None = None
+
+@app.before_serving
+async def startup():
+    global db_pool
+    db_pool = await asyncpg.create_pool(DB_DSN)
+
+@app.after_serving
+async def shutdown():
+    if db_pool is not None:
+        await db_pool.close()
 @app.route("/", methods=["GET", "POST"])
 async def index():
     include_hull = False
     copies = 1
     markup_pct = 0.0
+    shipping_cost = 1200.0
     user_input = ""
     parsed = {}
     totals = {}
@@ -356,13 +462,14 @@ async def index():
         user_input = form.get("fitting", "")
         copies = int(form.get("copies", 1))
         markup_pct = float(form.get("markup_pct", 0.0))
+        shipping_cost = float(form.get("shipping_cost", 1200.0))
         if user_input.strip():
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost):
                 if event["type"] == "done":
                     parsed = event["parsed"]
                     totals = event["totals"]
                     buy_lists = event.get("buy_lists", {"JITA": [], "C-J": []})
-    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, user_input=user_input, buy_lists=buy_lists)
+    return await render_template("index.html", parsed=parsed, totals=totals, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, buy_lists=buy_lists, active_page="fitting")
 
 @app.route("/stream", methods=["POST"])
 async def stream():
@@ -371,12 +478,13 @@ async def stream():
     include_hull = 'include_hull' in form
     copies = int(form.get("copies", 1))
     markup_pct = float(form.get("markup_pct", 0.0))
+    shipping_cost = float(form.get("shipping_cost", 1200.0))
 
     async def generate():
         try:
             item_count = 0
 
-            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct):
+            async for event in parse_input_stream(user_input, include_hull=include_hull, copies=copies, markup_pct=markup_pct, shipping_cost=shipping_cost):
                 item_count += 1
 
                 payload = json.dumps(event, separators=(",",":")) + "\n" 
@@ -404,6 +512,49 @@ async def stream():
     )
 
 
+@app.route("/general", methods=["GET", "POST"])
+async def general():
+    markup_pct = 0.0
+    shipping_cost = 1200.0
+    user_input = ""
+    items = []
+    totals = {}
+    if request.method == "POST":
+        form = await request.form
+        user_input = form.get("items", "")
+        markup_pct = float(form.get("markup_pct", 0.0))
+        shipping_cost = float(form.get("shipping_cost", 1200.0))
+        if user_input.strip():
+            async for event in parse_general_stream(user_input, markup_pct=markup_pct, shipping_cost=shipping_cost):
+                if event["type"] == "done":
+                    items = event["items"]
+                    totals = event["totals"]
+    return await render_template("general.html", items=items, totals=totals, markup_pct=markup_pct, shipping_cost=shipping_cost, user_input=user_input, active_page="general")
+
+@app.route("/general/stream", methods=["POST"])
+async def general_stream():
+    form = await request.form
+    user_input = form.get("items", "")
+    markup_pct = float(form.get("markup_pct", 0.0))
+    shipping_cost = float(form.get("shipping_cost", 1200.0))
+
+    async def generate():
+        try:
+            async for event in parse_general_stream(user_input, markup_pct=markup_pct, shipping_cost=shipping_cost):
+                yield json.dumps(event, separators=(",", ":")) + "\n"
+                await asyncio.sleep(0.01)
+        except Exception as e:
+            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+
+    return Response(
+        generate(),
+        mimetype="application/json",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 @app.before_request
 async def enforce_https():
     if testing_mode:
@@ -413,4 +564,7 @@ async def enforce_https():
         return redirect(url, code=301)    
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')
+    if testing_mode:
+        app.run(debug=True, host="0.0.0.0", port=5002)
+    if not testing_mode:
+        app.run(debug=False, host="0.0.0.0", port=5002, certfile='server.crt', keyfile='server.key')

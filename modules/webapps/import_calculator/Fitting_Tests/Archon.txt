@@ -1,0 +1,64 @@
+[Archon, TigersClaw  - DPS - V25.1]
+ 
+25000mm Crystalline Carbonide Restrained Plates
+25000mm Crystalline Carbonide Restrained Plates
+Drone Damage Amplifier II
+Dark Blood Multispectrum Coating
+Dark Blood Multispectrum Energized Membrane
+Damage Control II
+Drone Damage Amplifier II
+ 
+50000MN Cold-Gas Enduring Microwarpdrive
+Drone Navigation Computer II
+Capital Capacitor Booster I
+Drone Navigation Computer II
+ 
+Large Plasma Smartbomb II
+Fighter Support Unit II
+Fighter Support Unit II
+Integrated Sensor Array
+Heavy Energy Neutralizer II
+ 
+Capital Trimark Armor Pump I
+Capital Trimark Armor Pump I
+Capital Trimark Armor Pump I
+ 
+ 
+Templar I x14
+Templar I x9
+Templar I x9
+Templar I x9
+Templar I x9
+Cenobite I x3
+Dromi I x3
+Cenobite I x3
+Dromi I x3
+
+ 
+ 
+Mid-grade Amulet Alpha
+Mid-grade Amulet Beta
+Mid-grade Amulet Gamma
+Mid-grade Amulet Delta
+Mid-grade Amulet Epsilon
+Eifyr and Co. 'Rogue' High Speed Maneuvering HS-903
+Inherent Implants 'Noble' Hull Upgrades HG-1003
+
+ECCM Script x2
+Scan Resolution Script x2
+Targeting Range Script x2
+Optimal Range Script x2
+Tracking Speed Script x2
+Omnidirectional Tracking Link II x1
+Heavy Energy Neutralizer II x3
+Sensor Booster II x2
+Ship Scanner II x1
+Large Plasma Smartbomb II x3
+Heavy Stasis Grappler II x1
+Republic Fleet Target Painter x1
+Warp Disruptor II x1
+Warp Scrambler II x1
+Gravimetric ECM II x2
+Ladar ECM II x2
+Magnetometric ECM II x2
+Radar ECM II x2

@@ -1,63 +1,58 @@
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ── Roots ────────────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# Root Paths
-DATA_DIR = PROJECT_ROOT / "data"
-CONFIG_PATH = PROJECT_ROOT / ".env"
-LOGS_DIR = PROJECT_ROOT / "logs"
+DATA_DIR    = PROJECT_ROOT / "data"
+LOGS_DIR    = PROJECT_ROOT / "logs"
 MODULES_DIR = PROJECT_ROOT / "modules"
-TEMP_DIR = PROJECT_ROOT / "temp"
+TEMP_DIR    = PROJECT_ROOT / "temp"
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
-# Subdirectories (modules)
+# ── Modules ───────────────────────────────────────────────────────────────────
+
+DB_DIR      = MODULES_DIR / "db"
 DISCORD_DIR = MODULES_DIR / "discord"
-ESI_DIR = MODULES_DIR / "esi"
+ESI_DIR     = MODULES_DIR / "esi"
+MARKET_DIR  = MODULES_DIR / "market"
+UTILS_DIR   = MODULES_DIR / "utils"
 WEBAPPS_DIR = MODULES_DIR / "webapps"
-UTILS_DIR = MODULES_DIR / "utils"
-MARKET_DIR = MODULES_DIR / "market"
 
-# Subdirectories (data)
+# ── Webapps ───────────────────────────────────────────────────────────────────
 
+FIT_IMPORT_CALC_DIR    = WEBAPPS_DIR / "fitting_calculator"
+INDUSTRY_DASHBOARD_DIR = WEBAPPS_DIR / "industry_dashboard"
 
-# Subdirectories (logs)
+# ── Temp ──────────────────────────────────────────────────────────────────────
 
-
-# Subdirectories (utils)
-ID_ICONS_DIR = UTILS_DIR / "images"
-
-
-# Subdirectories (webapps)
-ANOM_PARSER_DIR = WEBAPPS_DIR / "anom_parser"
-FIT_IMPORT_CALC_DIR = WEBAPPS_DIR / "fit_import_calc"
-
-# Subdirectories (temp)
 GRAPHS_TEMP_DIR = TEMP_DIR / "graphs"
 
-# Subdirectories (market)
-GRAPH_GENERATOR = MARKET_DIR / "graph_generator.py"
-MARKET_SUMMARY_GENERATOR = MARKET_DIR / "market_summary_generator.py"
-PRICE_CHECKER = MARKET_DIR / "price_checker.py"
+# ── Data files ────────────────────────────────────────────────────────────────
 
-# Files (Data)
-ITEM_IDS_FILE = DATA_DIR / "Item_IDs.csv"
-ID_QUERY_LIST = DATA_DIR / "query_list.json"
-MARKET_DB_FILE_JITA = DATA_DIR / "jita_market_prices.db"
-MARKET_DB_FILE_GSF = DATA_DIR / "gsf_market_prices.db"
-ORE_LIST = DATA_DIR / "ore_list.json"
-ICE_PRODUCT_LIST = DATA_DIR / "ice_product_list.json"
-REPROCESS_YIELD = DATA_DIR / "reprocess_yield.json"
-REPROCESS_IDS = DATA_DIR / "reprocess_item_ids.json"
-ITEM_IDS_VOLUME_FILE = DATA_DIR / "Item_IDs_volume.csv"
-REPACKAGED_VOLUME = DATA_DIR / "repackaged_volumes.json"
-MARKET_DB_FILE_PLEX = DATA_DIR / "plex_market_prices.db"
+TYPE_DICT            = DATA_DIR / "TypeDictionary.csv"
+ORE_LIST             = DATA_DIR / "ore_list.json"
+ICE_PRODUCT_LIST     = DATA_DIR / "ice_product_list.json"
+REPROCESS_YIELD      = DATA_DIR / "reprocess_yield.json"
+REPROCESS_IDS        = DATA_DIR / "reprocess_item_ids.json"
+REPACKAGED_VOLUME    = DATA_DIR / "repackaged_volumes.json"
+ID_QUERY_LIST        = DATA_DIR / "query_list.json"
 
-# Files (ESI)
-TOKEN_FILE = ESI_DIR / "token.json"
-AT_MANAGER_FILE = ESI_DIR / "at_manager.py"
+# ── ESI files ─────────────────────────────────────────────────────────────────
+
+TOKEN_FILE         = ESI_DIR / "token.json"
 RUNTIME_CACHE_PATH = ESI_DIR / "runtime_cache.txt"
 
+# ── Environment ───────────────────────────────────────────────────────────────
 
+DB_DSN     = os.getenv("DATABASE_URL")
+CONFIG_PATH = PROJECT_ROOT / ".env"
 
-# Ensure everything exists
-for d in [DATA_DIR, TEMP_DIR, LOGS_DIR]:
+# ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+for d in [DATA_DIR, TEMP_DIR, LOGS_DIR, GRAPHS_TEMP_DIR]:
     d.mkdir(parents=True, exist_ok=True)

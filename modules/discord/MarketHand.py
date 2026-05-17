@@ -1,19 +1,19 @@
 import asyncio
-import subprocess
 import discord
 import os
-from discord import Optional, app_commands
+import asyncpg
+from discord import app_commands
 from discord.ext import commands
-from typing import Literal  # For fixed choices
+from typing import Literal
 import pandas as pd
 from dotenv import load_dotenv
 from collections import defaultdict
 import time
-import sys
 from modules.utils.logging_setup import get_logger
-from modules.utils.paths import ITEM_IDS_FILE, PROJECT_ROOT, PRICE_CHECKER
+from modules.utils.paths import TYPE_DICT, DB_DSN
 from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
+from modules.market.price_checker import price_check
 
 
 log = get_logger("MarketHandBot")
@@ -23,7 +23,23 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True  # Enable message content intent
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+class MarketBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix="!", intents=intents)
+        self.pool: asyncpg.Pool | None = None
+
+    async def setup_hook(self):
+        self.pool = await asyncpg.create_pool(DB_DSN)
+        log.info("Database pool created")
+
+    async def close(self):
+        if self.pool:
+            await self.pool.close()
+            log.info("Database pool closed")
+        await super().close()
+
+bot = MarketBot()
 
 ### COOLDOWNS
 cooldowns = defaultdict(float)
@@ -34,7 +50,7 @@ log.info("Discord bot Started")
 ### Items Available
 
 log.debug("Loading Item IDs")
-item_df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+item_df = pd.read_csv(TYPE_DICT).drop_duplicates(subset="typeID")
 name_to_id = {
     row["typeName"].lower(): row["typeID"]
     for _, row in item_df.iterrows()
@@ -85,7 +101,7 @@ async def get_item_id(interaction: discord.Interaction, user_item: str):
         await interaction.response.send_message("Input too long!", ephemeral=True)
         return
     
-    df = pd.read_csv(ITEM_IDS_FILE).drop_duplicates(subset="typeID")
+    df = pd.read_csv(TYPE_DICT).drop_duplicates(subset="typeID")
     for itemID in df:
         row = item_df[item_df['typeID'] == itemID]
 
@@ -140,7 +156,7 @@ async def get_graph(
         item_id = name_to_id[item_key]
         
         type_name = await match_item_name(item_id)
-        filepath, display_days, resolved_type_name = await generate_graph(item_id, days_history, market.lower(), type_name)
+        filepath, display_days, resolved_type_name = await generate_graph(item_id, days_history, market.lower(), type_name, bot.pool)
 
         if filepath is None:
             await interaction.followup.send(
@@ -212,7 +228,7 @@ async def item_summary(
         item_id = name_to_id[item_key]
         log.debug(f"Set item_id to {item_id}")
 
-        summary_text, display_days, type_name = await create_summary(item_id, days_history, market, item_name)
+        summary_text, display_days, type_name = await create_summary(item_id, days_history, market, item_name, bot.pool)
         
         await interaction.followup.send(
             content=(
@@ -224,6 +240,7 @@ async def item_summary(
         await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
+
 
 
 @bot.tree.command(name="check_price", description="Gets the current sell price of an item.")
@@ -267,31 +284,10 @@ async def check_price(
         item_id = name_to_id[item_key]
         log.debug(f"Set item_id to {item_id}")
 
-        command = [
-            sys.executable,
-            str(PRICE_CHECKER),
-            "--type_id", str(item_id),
-            "--market", str(market)
-        ]
+        price = await price_check(type_id=item_id, market=market, type_name=item_name, pool=bot.pool)
 
-        log.debug(f"Running subprocess: {command}")
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
-        log.debug(result.stdout)
-        log.error(result.stderr)
+        price_text = f"The current price in {market} for {item_name} is **{price:,}**"
 
-        if result.returncode == 0:
-            log.debug(f"Recieved code 0")
-            price_text = result.stdout.strip()
-            log.debug(f"Generated response as {price_text}")
-
-        if result.returncode != 0:
-            log.warning(f"Recieved code {result.returncode}")
-            await interaction.followup.send(
-                f"Price Check failed for `{item_name}` in `{market}`.",
-                ephemeral=True
-            )
-            return
-        
         await interaction.followup.send(
             content=(
                 price_text
@@ -301,6 +297,7 @@ async def check_price(
         await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
+
 
 @bot.tree.command(name="get_combined_graph", description="Send a price graph for the item with the Jita and GSF markets combined.")
 @app_commands.describe(
@@ -345,7 +342,7 @@ async def get_combined_graph(
         item_id = name_to_id[item_key]
         
         type_name = await match_item_name(item_id)
-        filepath, display_days, resolved_type_name = await generate_combined_graph(item_id, days_history, type_name)
+        filepath, display_days, resolved_type_name = await generate_combined_graph(item_id, days_history, type_name, bot.pool)
 
         
         if filepath is None:

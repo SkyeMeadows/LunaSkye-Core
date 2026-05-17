@@ -7,7 +7,7 @@ import asyncio
 import sys
 from modules.utils.paths import ESI_DIR, TOKEN_FILE
 from modules.utils.logging_setup import get_logger
-from modules.utils.token_gen import CLIENT_ID, TOKEN_URL
+from scripts.token_gen import CLIENT_ID, TOKEN_URL
 
 log = get_logger("ATManager")
 
