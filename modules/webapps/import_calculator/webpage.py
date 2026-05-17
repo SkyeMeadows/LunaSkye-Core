@@ -11,7 +11,7 @@ from modules.utils.paths import TYPE_DICT, DB_DSN
 from modules.utils.id_mapping import map_name_to_id
 from modules.esi.data_control import pull_fitting_price_data, get_volume
 
-log = get_logger("FittingImportCalc-Web")
+log = get_logger("ImportCalculator-Web")
 
 SECTION_NAMES = ["Ship", "Low", "Medium", "High", "Rigs", "Drones/Cargo", "Extra Cargo"]
 
