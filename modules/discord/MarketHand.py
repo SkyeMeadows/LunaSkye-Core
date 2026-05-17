@@ -13,6 +13,7 @@ from modules.utils.logging_setup import get_logger
 from modules.utils.paths import TYPE_DICT, DB_DSN
 from modules.market.graph_generator import match_item_name, generate_graph, generate_combined_graph
 from modules.market.market_summary_generator import create_summary
+from modules.market.price_checker import price_check
 
 
 log = get_logger("MarketHandBot")
@@ -241,7 +242,7 @@ async def item_summary(
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
 
 
-'''
+
 @bot.tree.command(name="check_price", description="Gets the current sell price of an item.")
 async def check_price(
     interaction: discord.Interaction,
@@ -283,31 +284,10 @@ async def check_price(
         item_id = name_to_id[item_key]
         log.debug(f"Set item_id to {item_id}")
 
-        command = [
-            sys.executable,
-            str(PRICE_CHECKER),
-            "--type_id", str(item_id),
-            "--market", str(market)
-        ]
+        price = await price_check(type_id=item_id, market=market, type_name=item_name, pool=bot.pool)
 
-        log.debug(f"Running subprocess: {command}")
-        result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=30, cwd=str(PROJECT_ROOT))
-        log.debug(result.stdout)
-        log.error(result.stderr)
+        price_text = f"The current price in {market} for {item_name} is **{price:,}**"
 
-        if result.returncode == 0:
-            log.debug(f"Recieved code 0")
-            price_text = result.stdout.strip()
-            log.debug(f"Generated response as {price_text}")
-
-        if result.returncode != 0:
-            log.warning(f"Recieved code {result.returncode}")
-            await interaction.followup.send(
-                f"Price Check failed for `{item_name}` in `{market}`.",
-                ephemeral=True
-            )
-            return
-        
         await interaction.followup.send(
             content=(
                 price_text
@@ -317,7 +297,7 @@ async def check_price(
         await asyncio.wait_for(inner(), timeout=30)
     except asyncio.TimeoutError:
         await interaction.followup.send("Process took too long (30s timeout).", ephemeral=True)
-'''
+
 
 @bot.tree.command(name="get_combined_graph", description="Send a price graph for the item with the Jita and GSF markets combined.")
 @app_commands.describe(

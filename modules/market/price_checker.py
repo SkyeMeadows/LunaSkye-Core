@@ -27,35 +27,15 @@ async def match_item_name(type_id: int):
         return f"Unknown Item {type_id}"
 
 async def price_check(type_id: int, market: str, type_name: str, pool: asyncpg.Pool):
-    if market == "jita":
+    if market == "Jita":
         schema = "jita"
-    elif market == "c-j6mt (gsf)":
+    elif market == "C-J6MT (GSF)":
         schema = "gsf"
+    elif market == "PLEX":
+        schema = "plex"
     else:
         log.error(f"Market {market} not recognized, defaulting to Jita")
         schema = "jita"
 
-    row = await query_recent_price(type_id, pool, schema)
-    price = row[3]
+    price = await query_recent_price(type_id, pool, schema)
     return price
-
-async def main():
-    load_dotenv()
-    type_id   = args.type_id
-    market    = str(args.market).lower()
-    type_name = await match_item_name(type_id)
-
-    pool  = await asyncpg.create_pool(DB_DSN)
-    price = await price_check(type_id, market, type_name, pool)
-    await pool.close()
-
-    print(f"The Current Price in {market} for {type_name} is **{price}**.")
-    return 0
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Check current price for a specific item.")
-    parser.add_argument("--type_id", type=int, required=True)
-    parser.add_argument("--market", type=str, default="jita", required=True)
-    args = parser.parse_args()
-
-    asyncio.run(main())

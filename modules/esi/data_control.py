@@ -116,7 +116,7 @@ async def clear_mineral_table(pool: asyncpg.Pool, schema: str):
 
 async def query_recent_price(type_id, pool: asyncpg.Pool, schema: str):
     query = f"""
-        SELECT timestamp, type_id, volume_remain, price, is_buy_order
+        SELECT price
         FROM {schema}.market_orders
         WHERE type_id = $1
         AND is_buy_order = FALSE
@@ -124,5 +124,5 @@ async def query_recent_price(type_id, pool: asyncpg.Pool, schema: str):
         LIMIT 1
     """
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(query, type_id)
-        return row
+        (price,) = await conn.fetchrow(query, type_id)
+        return price
